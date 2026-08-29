@@ -1,0 +1,85 @@
+/* ─── Upscale View ─── */
+.content--upscale {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+}
+
+.upscale-view {
+  display: flex;
+  height: calc(100vh - var(--topbar-height));
+  width: 100%;
+}
+
+.upscale-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-8);
+  background: var(--color-gray-50);
+  align-items: center;
+  justify-content: center;
+}
+
+.upscale-canvas-container {
+  width: 100%;
+  max-width: 640px;
+  aspect-ratio: 4/3;
+  border: 2px dashed var(--color-gray-300);
+  border-radius: var(--radius-2xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-white);
+  gap: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.upscale-canvas-container p {
+  color: var(--color-gray-500);
+  font-weight: var(--font-weight-medium);
+}
+
+.upscale-right {
+  width: 320px;
+  background: var(--color-white);
+  border-left: 1px solid var(--color-gray-200);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-6);
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.scale-options-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.scale-option-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2) 0;
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  cursor: pointer;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-700);
+  transition: all var(--transition-fast);
+}
+
+.scale-option-btn:hover {
+  border-color: var(--color-primary-light);
+  background: var(--color-primary-lighter);
+}
+
+.scale-option-btn.selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+}

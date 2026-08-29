@@ -1,0 +1,143 @@
+/* ─── Edit View ─── */
+.content--edit {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+}
+
+.edit-view {
+  display: flex;
+  height: calc(100vh - var(--topbar-height));
+  width: 100%;
+}
+
+.edit-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-8);
+  background: var(--color-gray-50);
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-canvas-container {
+  width: 100%;
+  max-width: 640px;
+  aspect-ratio: 4/3;
+  border: 2px dashed var(--color-gray-300);
+  border-radius: var(--radius-2xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-white);
+  gap: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.edit-canvas-container p {
+  color: var(--color-gray-500);
+  font-weight: var(--font-weight-medium);
+}
+
+.edit-right {
+  width: 320px;
+  background: var(--color-white);
+  border-left: 1px solid var(--color-gray-200);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-6);
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.edit-tools-grid {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.edit-tool-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  cursor: pointer;
+  color: var(--color-gray-600);
+  transition: all var(--transition-fast);
+}
+
+.edit-tool-btn:hover {
+  border-color: var(--color-primary-light);
+  background: var(--color-gray-50);
+}
+
+.edit-tool-btn.selected {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-lighter);
+}
+
+.edit-tool-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.edit-tool-btn span {
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+}
+
+/* Range slider for brush size */
+.brush-size-slider {
+  width: 100%;
+  margin-top: var(--space-2);
+  appearance: none;
+  height: 4px;
+  background: var(--color-gray-200);
+  border-radius: 2px;
+  outline: none;
+}
+
+.brush-size-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  cursor: pointer;
+}
+
+.edit-prompt-box {
+  width: 100%;
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+}
+
+.edit-prompt-box textarea {
+  width: 100%;
+  border: none;
+  outline: none;
+  resize: none;
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-900);
+  background: transparent;
+  font-family: inherit;
+  line-height: 1.5;
+  min-height: 80px;
+}
+
+.edit-prompt-box textarea::placeholder {
+  color: var(--color-gray-400);
+}

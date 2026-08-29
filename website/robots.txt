@@ -1,0 +1,26 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /*?*
+
+# Allow AI Search Engines (Perplexity, ChatGPT, Claude, Google AI)
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+# Host
+Host: https://cropstudio.automatexi.com
+
+# Sitemaps & LLM Context
+Sitemap: https://cropstudio.automatexi.com/sitemap.xml
+# LLMs.txt: https://cropstudio.automatexi.com/llms.txt
+

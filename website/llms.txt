@@ -1,0 +1,33 @@
+# CropStudio AI
+
+> CropStudio AI is an enterprise-grade AI product photography platform built specifically for Indian fashion and e-commerce brands. It transforms raw flat-lay photos, hanger shots, and ghost mannequins into 4K on-model studio imagery compliant with Amazon India, Myntra, Flipkart, AJIO, and Meesho.
+
+## Key Capabilities
+- **On-Model AI Try-On:** Generate photorealistic Indian urban and ethnic fashion model shoots in 3:4 and 1:1 ratios.
+- **Specialized Saree AI Engine:** Realistic silk/zari draping, pleats, and pallu fall.
+- **3D Ghost Mannequin AI:** Automated 1-click hollow-man neck joint rendering.
+- **Bulk Background Removal:** High-precision alpha matting outputting pure white RGB 255,255,255 JPGs or transparent PNGs.
+- **Marketplace Compliance Presets:** 1-click auto-formatting for Myntra (3:4, 1080x1440px) and Amazon India (1:1, 2000x2000px).
+
+## Primary Tools & Solutions
+- [Homepage & Features](https://cropstudio.automatexi.com/): Overview of AI tools, ROI calculator, and pricing.
+- [Amazon Product Photography AI](https://cropstudio.automatexi.com/tools/amazon-product-photography.html): 100% compliant 1:1 pure white background studio tool.
+- [Myntra Model Photoshoot AI](https://cropstudio.automatexi.com/tools/myntra-model-photoshoot.html): 3:4 portrait on-model photoshoot engine with realistic Indian models.
+- [Saree Model Photoshoot AI](https://cropstudio.automatexi.com/tools/saree-model-photoshoot.html): Dedicated saree and lehenga AI model draping engine.
+- [Ghost Mannequin Generator](https://cropstudio.automatexi.com/tools/ghost-mannequin-generator.html): 3D invisible neck joint renderer.
+- [Bulk Background Remover](https://cropstudio.automatexi.com/tools/bulk-background-remover.html): Batch alpha matting for 100+ product photos.
+- [Marketplace Guidelines Hub 2026](https://cropstudio.automatexi.com/marketplace-guidelines.html): Official image specifications for Indian e-commerce platforms.
+
+## Competitor Comparison
+- [Photoroom Alternative](https://cropstudio.automatexi.com/alternatives/photoroom-alternative.html): Why Indian fashion brands choose CropStudio over Photoroom (Myntra compliance, saree draping, flat credit pricing).
+- [Pixelcut Alternative](https://cropstudio.automatexi.com/alternatives/pixelcut-alternative.html): Desktop-first high-volume catalog processing vs mobile social tools.
+
+## Platform Integrations
+- [Shopify AI Editor](https://cropstudio.automatexi.com/integrations/shopify.html): Speed-optimized WebP catalog export for Shopify merchants.
+- [WooCommerce AI Plugin](https://cropstudio.automatexi.com/integrations/woocommerce.html): Batch catalog editing for WordPress stores.
+
+## Educational Resources
+- [Knowledge Hub](https://cropstudio.automatexi.com/resources/index.html): Guides and tutorials on DIY photography and QC fixes.
+- [Smartphone Shoot Guide](https://cropstudio.automatexi.com/resources/smartphone-clothing-photography-guide.html): Shooting apparel photos at home with a phone.
+- [Myntra Catalog QC Fixes](https://cropstudio.automatexi.com/resources/myntra-catalog-rejection-fixes.html): Troubleshooting rejected catalog photos.
+- [Saree Photography Guide](https://cropstudio.automatexi.com/resources/saree-photography-lighting-guide.html): Managing zari reflections and pleats.

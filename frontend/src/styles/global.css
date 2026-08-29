@@ -1,0 +1,65 @@
+/* ─── Global Styles ─── */
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  color: var(--color-gray-800);
+  background-color: var(--color-white);
+}
+
+/* ─── Layout Shell ─── */
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-400);
+}
+
+/* ─── Selection ─── */
+::selection {
+  background: var(--color-primary-lighter);
+  color: var(--color-primary-dark);
+}
+
+/* ─── Badge ─── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-full);
+  line-height: 1.6;
+}
+
+.badge--new {
+  background: #DBEAFE;
+  color: #1D4ED8;
+}
+
+.badge--offer {
+  background: #FEF3C7;
+  color: #B45309;
+}
+
+.badge--pro {
+  background: linear-gradient(135deg, #7C3AED, #4F46E5);
+  color: white;
+}
