@@ -21,9 +21,13 @@ class AuthService:
     def __init__(self, settings: Settings) -> None:
         self._jwt_secret = settings.supabase_jwt_secret
         self._algorithms = ["HS256", "ES256", "RS256"]
-        if settings.supabase_url:
-            jwks_url = f"{settings.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
-            self._jwks_client = jwt.PyJWKClient(jwks_url)
+        if settings.supabase_url and settings.supabase_url.startswith(("http://", "https://")):
+            try:
+                jwks_url = f"{settings.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+                self._jwks_client = jwt.PyJWKClient(jwks_url)
+            except Exception as e:
+                logger.warning("jwks_client_init_failed", error=str(e))
+                self._jwks_client = None
         else:
             self._jwks_client = None
 
