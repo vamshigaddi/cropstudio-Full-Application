@@ -2358,3 +2358,17 @@ body, html {
   }
 }
 
+/* ─── Hide Netlify Drawer & Powered By Badge ─── */
+.netlify-badge,
+#netlify-badge,
+.netlify-drawer,
+[data-netlify-drawer],
+[id*="netlify"],
+iframe[title*="Netlify"],
+iframe[src*="netlify"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
