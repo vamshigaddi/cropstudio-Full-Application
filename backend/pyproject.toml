@@ -26,6 +26,7 @@ dependencies = [
     "aiofiles>=24.1.0",
     # Storage
     "google-cloud-storage>=2.17.0",
+    "boto3>=1.34.0",
     # Queue
     "google-cloud-tasks>=2.16.2",
     # OpenAI Integration

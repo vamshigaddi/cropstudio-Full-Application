@@ -46,11 +46,16 @@ class Settings(BaseSettings):
 
     # Storage / Integrations
     storage_provider: str = Field(
-        default="local", description="Which storage provider to use: 'local' or 'gcs'"
+        default="local", description="Which storage provider to use: 'local', 'gcs', or 'r2'"
     )
     local_storage_path: str = Field(default="./storage", description="Path for local file storage")
     gcs_bucket_name: str = Field(default="", description="GCS bucket name for prod")
     gcs_project_id: str = Field(default="", description="GCP project ID")
+    r2_account_id: str = Field(default="", description="Cloudflare R2 Account ID")
+    r2_access_key_id: str = Field(default="", description="Cloudflare R2 Access Key ID")
+    r2_secret_access_key: str = Field(default="", description="Cloudflare R2 Secret Access Key")
+    r2_bucket_name: str = Field(default="", description="Cloudflare R2 Bucket Name")
+    r2_public_domain: str = Field(default="", description="Cloudflare R2 Public Domain/URL")
     queue_provider: str = Field(
         default="local", description="Which queue provider to use: 'local' or 'cloud_tasks'"
     )
