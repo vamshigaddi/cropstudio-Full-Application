@@ -34,12 +34,17 @@ def create_engine(settings: Settings) -> AsyncEngine:
     elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+asyncpg://"):
         db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
+    connect_args = {}
+    if "asyncpg" in db_url:
+        connect_args["statement_cache_size"] = 0
+
     return create_async_engine(
         db_url,
         pool_size=settings.db_pool_size,
         max_overflow=settings.db_max_overflow,
         echo=settings.db_echo,
         pool_pre_ping=True,  # Detect stale connections before use
+        connect_args=connect_args,
     )
 
 
