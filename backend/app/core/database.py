@@ -38,6 +38,8 @@ def create_engine(settings: Settings) -> AsyncEngine:
     connect_args = {}
     if "asyncpg" in db_url:
         connect_args["statement_cache_size"] = 0
+    if "supabase" in db_url and "ssl=" not in db_url and "sslmode=" not in db_url:
+        connect_args["ssl"] = "require"
 
     try:
         return create_async_engine(
@@ -73,17 +75,31 @@ def init_db(settings: Settings) -> None:
     _session_factory = create_session_factory(_engine)
 
 
+from fastapi import HTTPException, status
+
+
 async def get_db_session() -> AsyncGenerator[AsyncSession]:
     """FastAPI dependency that yields a database session and handles cleanup."""
     if _session_factory is None:
-        raise RuntimeError("Database not initialized. Call init_db() first.")
-    async with _session_factory() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database not initialized",
+        )
+    try:
+        async with _session_factory() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database connection error: {str(e)}",
+        ) from e
 
 
 async def check_db_health() -> bool:
