@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://127.0.0.1:8000/api/v1'; // Adjust for production
+const API_BASE_URL = (typeof window !== 'undefined' && window.VITE_API_BASE_URL) || 'https://api.cropstudio.automatexi.com/api/v1';
 const WAITLIST_API = `${API_BASE_URL}/waitlist`;
 
 const waitlistCategories = [

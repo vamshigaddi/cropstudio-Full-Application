@@ -72,7 +72,7 @@ const appState = {
   },
 };
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.cropstudio.automatexi.com/api/v1';
 const SUPABASE_URL = 'https://vhooqkuiiwskjymselhp.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_jKsXovWfGyHsjtAt14MAiQ_iDLEdVoZ';
 let supabaseClient = null;
