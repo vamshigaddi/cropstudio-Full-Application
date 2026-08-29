@@ -31,12 +31,12 @@ import uuid
 class UserResponse(BaseModel):
     """User data returned in API responses."""
 
-    id: uuid.UUID
+    id: uuid.UUID | str
     email: str | None = None
     role: str = "user"
     profile: ProfileResponse | None = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
