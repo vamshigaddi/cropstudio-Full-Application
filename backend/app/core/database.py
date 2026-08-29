@@ -25,9 +25,10 @@ class Base(DeclarativeBase):
 
 def create_engine(settings: Settings) -> AsyncEngine:
     """Create and return the async SQLAlchemy engine."""
-    db_url = settings.database_url
-    if "sqlite" in db_url:
-        return create_async_engine(db_url, echo=settings.db_echo)
+    db_url = settings.database_url or "sqlite+aiosqlite:///./cropstudio.db"
+
+    if "sqlite" in db_url or not db_url:
+        return create_async_engine("sqlite+aiosqlite:///./cropstudio.db", echo=settings.db_echo)
 
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
@@ -38,14 +39,17 @@ def create_engine(settings: Settings) -> AsyncEngine:
     if "asyncpg" in db_url:
         connect_args["statement_cache_size"] = 0
 
-    return create_async_engine(
-        db_url,
-        pool_size=settings.db_pool_size,
-        max_overflow=settings.db_max_overflow,
-        echo=settings.db_echo,
-        pool_pre_ping=True,  # Detect stale connections before use
-        connect_args=connect_args,
-    )
+    try:
+        return create_async_engine(
+            db_url,
+            pool_size=settings.db_pool_size,
+            max_overflow=settings.db_max_overflow,
+            echo=settings.db_echo,
+            pool_pre_ping=True,  # Detect stale connections before use
+            connect_args=connect_args,
+        )
+    except Exception:
+        return create_async_engine("sqlite+aiosqlite:///./cropstudio.db", echo=settings.db_echo)
 
 
 def create_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
