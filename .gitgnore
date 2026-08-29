@@ -1,4 +1,17 @@
-backend/
+.env
+.venv
+__pycache__
+.mypy_cache
+.ruff_cache
+.pytest_cache
+alembic/*
+seed_prompts.py
+alembic.ini
+tests/*
+storage/*
+
+
+
 node_modules
 # Logs
 logs
