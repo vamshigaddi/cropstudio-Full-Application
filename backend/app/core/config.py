@@ -26,7 +26,12 @@ class Settings(BaseSettings):
 
     # ─── API ───
     api_prefix: str = "/api/v1"
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    cors_origins: list[str] = [
+        "https://cropstudio.automatexi.com",
+        "https://app.cropstudio.automatexi.com",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ]
 
     # ─── Database ───
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/cropstudio"
