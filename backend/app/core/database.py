@@ -25,8 +25,14 @@ class Base(DeclarativeBase):
 
 def create_engine(settings: Settings) -> AsyncEngine:
     """Create and return the async SQLAlchemy engine."""
+    db_url = settings.database_url
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+asyncpg://"):
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
     return create_async_engine(
-        settings.database_url,
+        db_url,
         pool_size=settings.db_pool_size,
         max_overflow=settings.db_max_overflow,
         echo=settings.db_echo,
