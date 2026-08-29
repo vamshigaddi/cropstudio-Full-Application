@@ -1,4 +1,5 @@
-import JSZip from 'jszip';
+import JSZipModule from 'jszip';
+const JSZip = JSZipModule || (typeof window !== 'undefined' && window.JSZip);
 import './styles/variables.css';
 import './styles/reset.css';
 import './styles/global.css';
