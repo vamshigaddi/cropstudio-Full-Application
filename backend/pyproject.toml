@@ -28,9 +28,6 @@ dependencies = [
     # Storage
     "google-cloud-storage>=2.17.0",
     "boto3>=1.34.0",
-    # Background Removal & AI Image Processing
-    "rembg[cpu]>=2.0.50",
-    "onnxruntime>=1.18.0",
     # Queue
     "google-cloud-tasks>=2.16.2",
     # OpenAI Integration
