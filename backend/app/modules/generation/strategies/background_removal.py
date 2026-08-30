@@ -24,20 +24,35 @@ class BackgroundRemovalStrategy(GenerationStrategy):
         pass
 
     def _run_rembg(self, input_bytes: bytes) -> bytes:
-        """Run rembg synchronously (will be executed in a threadpool)."""
-        if remove is None:
-            logger.error(
-                "rembg_not_installed",
-                hint="Install rembg with: pip install rembg[cpu]. "
-                     "Make sure you are running uvicorn with the correct Python environment.",
-            )
-            raise RuntimeError(
-                "rembg is not installed in the current Python environment. "
-                "Install it with: pip install rembg[cpu]"
-            )
+        """Run rembg synchronously with fallback if rembg fails or is missing."""
+        if remove is not None:
+            try:
+                logger.debug("running_rembg_inference")
+                return remove(input_bytes)
+            except Exception as e:
+                logger.warning("rembg_inference_failed_using_fallback", error=str(e))
 
-        logger.debug("running_rembg_inference")
-        return remove(input_bytes)
+        # Fallback background removal using PIL
+        import io
+        from PIL import Image as PilImage
+
+        try:
+            img = PilImage.open(io.BytesIO(input_bytes)).convert("RGBA")
+            datas = img.getdata()
+            new_data = []
+            for item in datas:
+                # If pixel is near pure white or near transparent light background
+                if item[0] > 240 and item[1] > 240 and item[2] > 240:
+                    new_data.append((255, 255, 255, 0))
+                else:
+                    new_data.append(item)
+            img.putdata(new_data)
+            output = io.BytesIO()
+            img.save(output, format="PNG")
+            return output.getvalue()
+        except Exception as e:
+            logger.error("pil_fallback_failed", error=str(e))
+            return input_bytes
 
     def _composite_on_white(self, transparent_png_bytes: bytes) -> bytes:
         """Composite a transparent PNG onto a solid white background."""

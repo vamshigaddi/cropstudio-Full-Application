@@ -6843,9 +6843,19 @@ function initBatchEvents() {
             const blob = await processImageForMarketplace(job.result_url, platformId, resId);
             zip.file(filename, blob);
           } catch (e) {
-            const response = await fetch(job.result_url);
-            const rawBlob = await response.blob();
-            zip.file(filename, rawBlob);
+            try {
+              if (job.result_url) {
+                const response = await fetch(job.result_url);
+                const rawBlob = await response.blob();
+                zip.file(filename, rawBlob);
+              } else if (originalFile && originalFile.file) {
+                zip.file(filename, originalFile.file);
+              }
+            } catch (err) {
+              if (originalFile && originalFile.file) {
+                zip.file(filename, originalFile.file);
+              }
+            }
           }
         });
 
