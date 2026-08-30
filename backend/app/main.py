@@ -127,7 +127,7 @@ def create_app() -> FastAPI:
     # ─── Exception Handlers ───
     register_exception_handlers(app)
 
-    @app.get("/")
+    @app.api_route("/", methods=["GET", "HEAD"])
     async def root() -> dict[str, str]:
         return {
             "status": "ok",
