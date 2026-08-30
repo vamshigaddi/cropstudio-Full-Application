@@ -1,6 +1,5 @@
-"""Queue integration — Local BackgroundTasks implementation."""
-
 import asyncio
+import os
 import uuid
 from typing import Any
 
@@ -15,10 +14,9 @@ logger = get_logger(__name__)
 
 
 class LocalQueueProvider(QueueProvider):
-    """Local queue provider using asyncio/httpx to simulate Cloud Tasks.
+    """Local queue provider using direct internal service execution or dynamic local HTTP.
 
-    Since Cloud Tasks makes HTTP calls to our worker endpoints, this local provider
-    makes a local HTTP POST request to the target URI asynchronously.
+    Executes background generation jobs directly in memory or dispatches to the internal worker endpoint.
     """
 
     def __init__(self, settings: Settings, background_tasks: BackgroundTasks | None = None) -> None:
@@ -26,17 +24,49 @@ class LocalQueueProvider(QueueProvider):
         self.background_tasks = background_tasks
 
     async def _execute_task(self, target_uri: str, payload: dict[str, Any]) -> None:
-        """Execute the task by making an HTTP call to our own API."""
-        # For local dev, we assume the API is running on 127.0.0.1:8000
-        # In a real setup, you might pass the base URL via settings
-        base_url = "http://127.0.0.1:8000"
+        """Execute the task by calling internal service or local endpoint."""
+        # 1. Try direct in-memory service execution first (fastest, 0 network overhead)
+        if "/workers/jobs/process" in target_uri and "job_id" in payload:
+            try:
+                from app.core.database import _session_factory
+                from app.core.events import get_event_bus
+                from app.integrations.storage.factory import get_storage_provider
+                from app.modules.generation.orchestrator import GenerationOrchestrator
+                from app.modules.jobs.repository import JobRepository
+                from app.modules.jobs.service import JobService
+
+                if _session_factory:
+                    async with _session_factory() as session:
+                        repo = JobRepository(session)
+                        storage = get_storage_provider(self.settings)
+                        orchestrator = GenerationOrchestrator(session, self.settings, storage)
+                        event_bus = get_event_bus()
+                        service = JobService(repo, orchestrator, event_bus)
+
+                        kwargs = {
+                            "job_id_str": payload["job_id"],
+                            "generation_mode": payload.get("generation_mode", "white_background"),
+                        }
+                        if payload.get("config") is not None:
+                            kwargs["config"] = payload["config"]
+
+                        logger.info("local_queue_direct_execution_started", job_id=payload["job_id"])
+                        await service.process_job(**kwargs)
+                        logger.info("local_queue_direct_execution_completed", job_id=payload["job_id"])
+                        return
+            except Exception as direct_err:
+                logger.warning("direct_execution_failed_falling_back_to_http", error=str(direct_err))
+
+        # 2. Fallback to dynamic HTTP dispatch
+        port = os.environ.get("PORT", "10000")
+        base_url = f"http://127.0.0.1:{port}"
         url = f"{base_url}{target_uri}"
 
         logger.info("local_queue_dispatch", url=url, payload=payload)
 
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(url, json=payload, timeout=30.0)
+                response = await client.post(url, json=payload, timeout=60.0)
                 response.raise_for_status()
                 logger.info("local_queue_success", status=response.status_code)
         except Exception as e:
