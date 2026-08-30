@@ -97,6 +97,16 @@ async function getBase64FromUrl(url) {
 }
 
 // ─── API Helper Functions ───
+function handleSessionExpired(msg = 'Your session has expired. Please sign in again.') {
+  localStorage.removeItem('cs_token');
+  appState.token = '';
+  appState.user = null;
+  if (window.history && window.history.pushState) {
+    window.history.pushState({}, '', '/signin');
+  }
+  renderAuth('signin', msg);
+}
+
 async function apiFetch(endpoint, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
@@ -111,10 +121,7 @@ async function apiFetch(endpoint, options = {}) {
     headers,
   });
   if (response.status === 401) {
-    localStorage.removeItem('cs_token');
-    appState.token = '';
-    appState.user = null;
-    renderAuth('signin', 'Your session has expired. Please sign in again.');
+    handleSessionExpired('Your session has expired. Please sign in again.');
     throw new Error('Session expired');
   }
   if (!response.ok) {
@@ -138,6 +145,10 @@ async function apiUpload(file) {
     body: formData,
     headers,
   });
+  if (response.status === 401) {
+    handleSessionExpired('Your session has expired. Please sign in again.');
+    throw new Error('Session expired');
+  }
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.detail || errorData.message || 'File upload failed');
