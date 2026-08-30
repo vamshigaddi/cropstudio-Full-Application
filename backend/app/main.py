@@ -123,6 +123,15 @@ def create_app() -> FastAPI:
     # ─── Exception Handlers ───
     register_exception_handlers(app)
 
+    @app.get("/")
+    async def root() -> dict[str, str]:
+        return {
+            "status": "ok",
+            "name": settings.app_name,
+            "version": settings.app_version,
+            "environment": settings.environment,
+        }
+
     # ─── Routers ───
     app.include_router(health_router)
     app.include_router(users_router, prefix=settings.api_prefix)
