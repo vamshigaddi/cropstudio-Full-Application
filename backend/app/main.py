@@ -45,24 +45,28 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     init_db(settings)
     logger.info("database_initialized")
 
-    # ─── Auto-create Database Tables ───
-    try:
-        from app.core.database import _engine, Base
-        import app.modules.users.models  # noqa
-        import app.modules.batches.models  # noqa
-        import app.modules.jobs.models  # noqa
-        import app.modules.prompts.models  # noqa
-        import app.modules.uploads.models  # noqa
-        import app.modules.audit.models  # noqa
-        import app.modules.waitlist.models  # noqa
-        import app.modules.generation.models  # noqa
+    # ─── Auto-create Database Tables in Background ───
+    async def _async_create_tables():
+        try:
+            from app.core.database import _engine, Base
+            import app.modules.users.models  # noqa
+            import app.modules.batches.models  # noqa
+            import app.modules.jobs.models  # noqa
+            import app.modules.prompts.models  # noqa
+            import app.modules.uploads.models  # noqa
+            import app.modules.audit.models  # noqa
+            import app.modules.waitlist.models  # noqa
+            import app.modules.generation.models  # noqa
 
-        if _engine:
-            async with _engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-            logger.info("database_tables_created")
-    except Exception as e:
-        logger.warning("database_table_creation_warning", error=str(e))
+            if _engine:
+                async with _engine.begin() as conn:
+                    await conn.run_sync(Base.metadata.create_all)
+                logger.info("database_tables_created")
+        except Exception as e:
+            logger.warning("database_table_creation_warning", error=str(e))
+
+    import asyncio
+    asyncio.create_task(_async_create_tables())
 
     # ─── Event Bus Setup ───
     from app.core.event_subscribers import (

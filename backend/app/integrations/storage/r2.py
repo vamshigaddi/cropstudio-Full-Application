@@ -1,8 +1,10 @@
-"""Cloudflare R2 / AWS S3 Storage Provider implementation."""
+try:
+    import boto3
+    from botocore.config import Config
+except ImportError:
+    boto3 = None
+    Config = None
 
-import os
-import boto3
-from botocore.config import Config
 from app.core.config import Settings
 from app.core.logging import get_logger
 
@@ -13,6 +15,9 @@ class R2StorageProvider:
     """Storage provider using Cloudflare R2 (S3-compatible)."""
 
     def __init__(self, settings: Settings) -> None:
+        if boto3 is None or Config is None:
+            raise RuntimeError("boto3 is not installed in current environment")
+
         self.bucket_name = settings.r2_bucket_name
         self.public_domain = settings.r2_public_domain.rstrip('/') if settings.r2_public_domain else ""
         
