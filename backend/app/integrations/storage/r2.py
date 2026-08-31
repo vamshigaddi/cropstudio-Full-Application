@@ -62,10 +62,15 @@ class R2StorageProvider:
             return False
 
     async def get_signed_url(self, file_path: str, expiration_seconds: int = 900) -> str:
-        """Generate presigned download URL."""
+        """Generate presigned or public download URL."""
         clean_path = file_path.lstrip('/')
-        return self.s3_client.generate_presigned_url(
-            'get_object',
-            Params={'Bucket': self.bucket_name, 'Key': clean_path},
-            ExpiresIn=expiration_seconds
-        )
+        if self.public_domain:
+            return f"{self.public_domain}/{clean_path}"
+        try:
+            return self.s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': self.bucket_name, 'Key': clean_path},
+                ExpiresIn=expiration_seconds
+            )
+        except Exception:
+            return f"https://{self.bucket_name}.r2.cloudflarestorage.com/{clean_path}"
