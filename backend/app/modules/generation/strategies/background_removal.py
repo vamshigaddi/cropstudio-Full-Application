@@ -4,9 +4,12 @@ import asyncio
 from typing import Any
 
 try:
-    from rembg import remove
-except ImportError:
+    from rembg import new_session, remove
+    # Pre-warm high-speed ONNX Runtime CPU session
+    _ONNX_SESSION = new_session("u2net")
+except Exception:
     remove = None
+    _ONNX_SESSION = None
 
 from app.core.logging import get_logger
 from app.integrations.ai.base import GenerationResult
@@ -17,17 +20,18 @@ logger = get_logger(__name__)
 
 
 class BackgroundRemovalStrategy(GenerationStrategy):
-    """Strategy for removing image backgrounds locally using rembg."""
+    """Strategy for removing image backgrounds locally using ONNX-accelerated rembg."""
 
     def __init__(self) -> None:
-        # We could initialize a specific rembg session here if needed
-        pass
+        self.session = _ONNX_SESSION
 
     def _run_rembg(self, input_bytes: bytes) -> bytes:
-        """Run rembg synchronously with fallback if rembg fails or is missing."""
+        """Run rembg synchronously using pre-warmed ONNX Runtime session."""
         if remove is not None:
             try:
-                logger.debug("running_rembg_inference")
+                logger.debug("running_rembg_onnx_inference")
+                if self.session is not None:
+                    return remove(input_bytes, session=self.session)
                 return remove(input_bytes)
             except Exception as e:
                 logger.warning("rembg_inference_failed_using_fallback", error=str(e))
