@@ -109,8 +109,9 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version=settings.app_version,
         description="AI-powered ecommerce product photography platform",
-        docs_url="/docs" if settings.debug else None,
-        redoc_url="/redoc" if settings.debug else None,
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
         lifespan=lifespan,
     )
 
@@ -134,6 +135,16 @@ def create_app() -> FastAPI:
             "name": settings.app_name,
             "version": settings.app_version,
             "environment": settings.environment,
+            "docs": "/docs",
+        }
+
+    @app.api_route(settings.api_prefix, methods=["GET", "HEAD"])
+    async def api_root() -> dict[str, str]:
+        return {
+            "status": "ok",
+            "name": settings.app_name,
+            "version": settings.app_version,
+            "docs": "/docs",
         }
 
     # ─── Routers ───
