@@ -1,7 +1,75 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="120" fill="#000000"/>
-  <path d="M150 180 h150 v40 h-150 z" fill="#ffffff"/>
-  <path d="M150 250 h212 v40 h-212 z" fill="#ffffff"/>
-  <path d="M150 320 h100 v40 h-100 z" fill="#ffffff"/>
-  <circle cx="360" cy="200" r="40" fill="#007aff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <!-- Background Gradient -->
+    <radialGradient id="bgGrad" cx="30%" cy="20%" r="90%">
+      <stop offset="0%" stop-color="#1e1b4b" />
+      <stop offset="45%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#030712" />
+    </radialGradient>
+
+    <!-- Vibrant Crop Frame Gradient -->
+    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="35%" stop-color="#6366f1" />
+      <stop offset="70%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#d946ef" />
+    </linearGradient>
+
+    <!-- Lens Flare Gradient -->
+    <radialGradient id="sparkleGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="30%" stop-color="#67e8f9" stop-opacity="0.9" />
+      <stop offset="70%" stop-color="#6366f1" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Subtle Border Stroke -->
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.1" />
+    </linearGradient>
+
+    <!-- Drop Shadow Filter for Depth -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base Canvas -->
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="6" />
+
+  <!-- Outer Crop Viewfinder Brackets -->
+  <!-- Top Left Bracket -->
+  <path d="M104 184 V128 C104 114.745 114.745 104 128 104 H184" stroke="url(#primaryGrad)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" />
+  
+  <!-- Top Right Bracket -->
+  <path d="M328 104 H384 C397.255 104 408 114.745 408 128 V184" stroke="url(#primaryGrad)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" />
+  
+  <!-- Bottom Right Bracket -->
+  <path d="M408 328 V384 C408 397.255 397.255 408 384 408 H328" stroke="url(#primaryGrad)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" />
+  
+  <!-- Bottom Left Bracket -->
+  <path d="M184 408 H128 C114.745 408 104 397.255 104 384 V328" stroke="url(#primaryGrad)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Ambient Glow Behind Lens Core -->
+  <circle cx="256" cy="256" r="100" fill="url(#sparkleGlow)" opacity="0.35" filter="url(#glow)" />
+
+  <!-- The Iconic Geometric "C" Aperture Loop -->
+  <path d="M336 196 C314 164 278 152 240 156 C186 162 148 206 148 256 C148 306 186 350 240 356 C280 360 316 346 338 314" 
+        stroke="url(#primaryGrad)" 
+        stroke-width="32" 
+        stroke-linecap="round" />
+
+  <!-- The 4-Point AI Studio Star Prism (Center Core) -->
+  <g filter="url(#glow)">
+    <path d="M268 184 C268 226 250 246 208 246 C250 246 268 266 268 308 C268 266 286 246 328 246 C286 246 268 226 268 184 Z" 
+          fill="#ffffff" />
+    <!-- Center Flare Dot -->
+    <circle cx="268" cy="246" r="6" fill="#38bdf8" />
+  </g>
+  
+  <!-- Little Accent Shimmer Star (Top Right) -->
+  <path d="M344 148 C344 162 338 168 324 168 C338 168 344 174 344 188 C344 174 350 168 364 168 C350 168 344 162 344 148 Z" 
+        fill="#38bdf8" />
 </svg>

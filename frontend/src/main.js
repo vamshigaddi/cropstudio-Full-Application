@@ -274,7 +274,7 @@ function renderSidebar() {
   return `
     <aside class="sidebar" id="sidebar">
       <div class="sidebar__logo">
-        <div class="sidebar__logo-icon">CS</div>
+        <img src="/logo-mark.svg" alt="CropStudio AI" class="sidebar__logo-icon" style="width:34px; height:34px; border-radius:9px; box-shadow:0 4px 12px rgba(99,102,241,0.25); object-fit:contain;" />
         <div class="sidebar__logo-text">CropStudio <span>AI</span></div>
       </div>
 
@@ -2493,7 +2493,7 @@ function renderAuth(mode = 'signin', errorMsg = '') {
         <div class="auth-form-panel">
           <div class="auth-form-header">
             <div class="auth-header-brand">
-              <div class="auth-logo-ring">CS</div>
+              <img src="/logo-mark.svg" alt="CropStudio AI" class="auth-logo-ring" style="width:44px; height:44px; border-radius:12px; box-shadow:0 6px 18px rgba(99,102,241,0.3); object-fit:contain; border:none;" />
               <div class="auth-brand-name">CropStudio <span>AI</span></div>
             </div>
 

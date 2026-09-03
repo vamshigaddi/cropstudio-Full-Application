@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 52" fill="none">
+  <defs>
+    <radialGradient id="markBgFront" cx="30%" cy="20%" r="90%">
+      <stop offset="0%" stop-color="#1e1b4b" />
+      <stop offset="45%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#030712" />
+    </radialGradient>
+    <linearGradient id="markGradFront" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="35%" stop-color="#6366f1" />
+      <stop offset="70%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#d946ef" />
+    </linearGradient>
+    <linearGradient id="studioGradFront" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+    <linearGradient id="aiBadgeBgFront" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#4f46e5" />
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(0, 0)">
+    <rect x="2" y="2" width="48" height="48" rx="13" fill="url(#markBgFront)" stroke="rgba(129, 140, 248, 0.4)" stroke-width="1.5" />
+    <path d="M11 19 V14 C11 12.5 12.5 11 14 11 H19" stroke="url(#markGradFront)" stroke-width="2.6" stroke-linecap="round" />
+    <path d="M33 11 H38 C39.5 11 41 12.5 41 14 V19" stroke="url(#markGradFront)" stroke-width="2.6" stroke-linecap="round" />
+    <path d="M41 33 V38 C41 39.5 39.5 41 38 41 H33" stroke="url(#markGradFront)" stroke-width="2.6" stroke-linecap="round" />
+    <path d="M19 41 H14 C12.5 41 11 39.5 11 38 V33" stroke="url(#markGradFront)" stroke-width="2.6" stroke-linecap="round" />
+    <path d="M33 20.5 C31 17.5 27.5 16 23.5 16.5 C18.5 17 15 21 15 26 C15 31 18.5 35 23.5 35.5 C27.5 36 31 34.5 33 31.5" stroke="url(#markGradFront)" stroke-width="3" stroke-linecap="round" />
+    <path d="M26.5 20.5 C26.5 24 25 25.5 21.5 25.5 C25 25.5 26.5 27 26.5 30.5 C26.5 27 28 25.5 31.5 25.5 C28 25.5 26.5 24 26.5 20.5 Z" fill="#ffffff" />
+    <path d="M34 14.5 C34 16 33.5 16.5 32 16.5 C33.5 16.5 34 17 34 18.5 C34 17 34.5 16.5 36 16.5 C34.5 16.5 34 16 34 14.5 Z" fill="#38bdf8" />
+  </g>
+
+  <g transform="translate(62, 33)">
+    <text font-family="system-ui, -apple-system, 'Inter', 'Segoe UI', sans-serif" font-size="22" font-weight="800" letter-spacing="-0.5px">
+      <tspan fill="#0f172a">Crop</tspan><tspan fill="url(#studioGradFront)">Studio</tspan>
+    </text>
+  </g>
+
+  <g transform="translate(196, 17)">
+    <rect width="28" height="18" rx="6" fill="url(#aiBadgeBgFront)" />
+    <text x="14" y="13" font-family="system-ui, -apple-system, 'Inter', sans-serif" font-size="10" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="0.5px">AI</text>
+  </g>
+</svg>
