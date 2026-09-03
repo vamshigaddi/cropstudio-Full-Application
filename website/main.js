@@ -477,19 +477,15 @@ function initInteractiveSandbox() {
   }
 }
 
-// ─── Multi-Currency & Dynamic Pricing Controller ───
+// ─── Silent Geo-Currency & Dynamic Pricing Controller ───
 let currentBillingCurrency = 'INR';
 let currentBillingCycle = 'monthly';
 
 function initPricingCurrencyToggle() {
-  const btnInr = document.getElementById('btn-curr-inr');
-  const btnUsd = document.getElementById('btn-curr-usd');
   const btnMonthly = document.getElementById('btn-monthly');
   const btnYearly = document.getElementById('btn-yearly');
 
-  if (!btnInr || !btnUsd) return;
-
-  // 1. Auto-detect user's country from browser timezone
+  // 1. Auto-detect user's country from browser timezone silently
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
     if (!tz.includes('Calcutta') && !tz.includes('Kolkata') && !tz.includes('India')) {
@@ -504,7 +500,6 @@ function initPricingCurrencyToggle() {
     .then(res => res.json())
     .then(data => {
       if (data && data.plans) {
-        // Update DOM attributes with live DB prices
         const starter = data.plans['creator_lite'];
         const pro = data.plans['brand_pro'];
         const biz = data.plans['enterprise_studio'];
@@ -539,17 +534,6 @@ function initPricingCurrencyToggle() {
     });
 
   function updatePricingDisplay() {
-    // Update currency buttons
-    btnInr.classList.toggle('active', currentBillingCurrency === 'INR');
-    btnInr.style.background = currentBillingCurrency === 'INR' ? '#ffffff' : 'transparent';
-    btnInr.style.color = currentBillingCurrency === 'INR' ? '#0f172a' : '#64748b';
-    btnInr.style.boxShadow = currentBillingCurrency === 'INR' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none';
-
-    btnUsd.classList.toggle('active', currentBillingCurrency === 'USD');
-    btnUsd.style.background = currentBillingCurrency === 'USD' ? '#ffffff' : 'transparent';
-    btnUsd.style.color = currentBillingCurrency === 'USD' ? '#0f172a' : '#64748b';
-    btnUsd.style.boxShadow = currentBillingCurrency === 'USD' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none';
-
     // Update cycle buttons
     if (btnMonthly && btnYearly) {
       btnMonthly.classList.toggle('active', currentBillingCycle === 'monthly');
@@ -583,9 +567,6 @@ function initPricingCurrencyToggle() {
       amtBiz.innerText = Number(val).toLocaleString();
     }
   }
-
-  btnInr.addEventListener('click', () => { currentBillingCurrency = 'INR'; updatePricingDisplay(); });
-  btnUsd.addEventListener('click', () => { currentBillingCurrency = 'USD'; updatePricingDisplay(); });
 
   if (btnMonthly) btnMonthly.addEventListener('click', () => { currentBillingCycle = 'monthly'; updatePricingDisplay(); });
   if (btnYearly) btnYearly.addEventListener('click', () => { currentBillingCycle = 'yearly'; updatePricingDisplay(); });

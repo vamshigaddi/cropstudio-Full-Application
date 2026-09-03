@@ -4941,21 +4941,13 @@ function openPricingModal(initialTab = 'plans') {
           <h1 class="pricing-modal__title">${activeTab === 'plans' ? 'Upgrade Your Workspace' : 'Add-On Credit Top-Up'}</h1>
           <p class="pricing-modal__subtitle">${activeTab === 'plans' ? 'Choose the perfect monthly plan for your fashion catalog workflow. Upgrade or downgrade anytime.' : 'Top-up credits have <strong>Lifetime Validity</strong> and never expire.'}</p>
           
-          <div class="pricing-modal__toggle" style="display:flex; flex-wrap:wrap; justify-content:center; gap:12px; align-items:center;">
-            <div style="display:inline-flex;">
-              <button class="pricing-toggle-btn ${activeTab === 'plans' ? 'active' : ''}" id="tab-btn-plans">
-                📅 Monthly Plans (Save 30%)
-              </button>
-              <button class="pricing-toggle-btn ${activeTab === 'topup' ? 'active' : ''}" id="tab-btn-topup">
-                🪙 Add-On Top-Up Packs (No Expiry)
-              </button>
-            </div>
-
-            <!-- Currency Toggle -->
-            <div style="display:inline-flex; background:#e2e8f0; padding:2px; border-radius:100px;">
-              <button class="pricing-toggle-btn ${modalCurrency === 'INR' ? 'active' : ''}" id="modal-curr-inr" style="padding:4px 12px; font-size:12px; border-radius:100px;">🇮🇳 INR (₹)</button>
-              <button class="pricing-toggle-btn ${modalCurrency === 'USD' ? 'active' : ''}" id="modal-curr-usd" style="padding:4px 12px; font-size:12px; border-radius:100px;">🌍 USD ($)</button>
-            </div>
+          <div class="pricing-modal__toggle">
+            <button class="pricing-toggle-btn ${activeTab === 'plans' ? 'active' : ''}" id="tab-btn-plans">
+              📅 Monthly Plans (Save 30%)
+            </button>
+            <button class="pricing-toggle-btn ${activeTab === 'topup' ? 'active' : ''}" id="tab-btn-topup">
+              🪙 Add-On Top-Up Packs (No Expiry)
+            </button>
           </div>
         </div>
 
@@ -5143,18 +5135,6 @@ function openPricingModal(initialTab = 'plans') {
     // 3. Switch to Top-Up Tab
     if (e.target.closest('#tab-btn-topup')) {
       activeTab = 'topup';
-      renderModalBody();
-      return;
-    }
-
-    // Currency Toggles
-    if (e.target.closest('#modal-curr-inr')) {
-      modalCurrency = 'INR';
-      renderModalBody();
-      return;
-    }
-    if (e.target.closest('#modal-curr-usd')) {
-      modalCurrency = 'USD';
       renderModalBody();
       return;
     }
