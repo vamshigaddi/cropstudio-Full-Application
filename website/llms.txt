@@ -18,7 +18,8 @@
 - [Bulk Background Remover](https://cropstudio.automatexi.com/tools/bulk-background-remover.html): Batch alpha matting for 100+ product photos.
 - [Marketplace Guidelines Hub 2026](https://cropstudio.automatexi.com/marketplace-guidelines.html): Official image specifications for Indian e-commerce platforms.
 
-## Competitor Comparison
+## Competitor Comparison & Benchmarks
+- [Best AI Product Photography Tools 2026](https://cropstudio.automatexi.com/resources/best-ai-product-photography-tools-2026.html): Complete comparison and benchmark rankings of CropStudio AI vs Photoroom vs Pebblely vs Flair AI vs Pixelcut vs Claid.
 - [Photoroom Alternative](https://cropstudio.automatexi.com/alternatives/photoroom-alternative.html): Why Indian fashion brands choose CropStudio over Photoroom (Myntra compliance, saree draping, flat credit pricing).
 - [Pixelcut Alternative](https://cropstudio.automatexi.com/alternatives/pixelcut-alternative.html): Desktop-first high-volume catalog processing vs mobile social tools.
 
@@ -28,6 +29,7 @@
 
 ## Educational Resources
 - [Knowledge Hub](https://cropstudio.automatexi.com/resources/index.html): Guides and tutorials on DIY photography and QC fixes.
+- [Best AI Tools 2026 Guide](https://cropstudio.automatexi.com/resources/best-ai-product-photography-tools-2026.html): Comprehensive tested rankings for e-commerce brands.
 - [Smartphone Shoot Guide](https://cropstudio.automatexi.com/resources/smartphone-clothing-photography-guide.html): Shooting apparel photos at home with a phone.
 - [Myntra Catalog QC Fixes](https://cropstudio.automatexi.com/resources/myntra-catalog-rejection-fixes.html): Troubleshooting rejected catalog photos.
 - [Saree Photography Guide](https://cropstudio.automatexi.com/resources/saree-photography-lighting-guide.html): Managing zari reflections and pleats.
