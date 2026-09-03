@@ -3992,7 +3992,7 @@ function renderTabContentHtml() {
 
   if (adminActiveTab === 'plans') {
     const plansHtml = (adminPlansData?.plans || []).map(p => `
-      <div class="admin-plan-card" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:20px; box-shadow:0 4px 12px rgba(0,0,0,0.03);">
+      <div class="admin-plan-card" id="card-plan-${p.id}" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:20px; box-shadow:0 4px 12px rgba(0,0,0,0.03); transition:all 0.2s;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
           <h4 style="font-size:16px; font-weight:800; color:#0f172a; margin:0;">${p.display_name} Plan <span style="font-size:11px; font-weight:600; color:#64748b;">(${p.id})</span></h4>
           <span class="cs-badge ${p.is_active ? 'cs-badge--success' : 'cs-badge--neutral'}">${p.is_active ? 'Active' : 'Inactive'}</span>
@@ -4001,30 +4001,41 @@ function renderTabContentHtml() {
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
           <div>
             <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">India Price (INR ₹)</label>
-            <input type="number" id="plan-inr-${p.id}" value="${p.price_inr}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px; font-weight:700; color:#0f172a;">
+            <input type="number" id="plan-inr-${p.id}" value="${p.price_inr}" data-orig="${p.price_inr}" disabled onwheel="this.blur()" class="admin-modal-input plan-field-${p.id}" style="width:100%; box-sizing:border-box; padding:8px 10px; font-weight:700; color:#0f172a; background:#f8fafc; border:1px solid #e2e8f0;">
           </div>
           <div>
             <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Global Price (USD $)</label>
-            <input type="number" id="plan-usd-${p.id}" value="${p.price_usd}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px; font-weight:700; color:#0f172a;">
+            <input type="number" id="plan-usd-${p.id}" value="${p.price_usd}" data-orig="${p.price_usd}" disabled onwheel="this.blur()" class="admin-modal-input plan-field-${p.id}" style="width:100%; box-sizing:border-box; padding:8px 10px; font-weight:700; color:#0f172a; background:#f8fafc; border:1px solid #e2e8f0;">
           </div>
           <div>
             <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Monthly Credits</label>
-            <input type="number" id="plan-credits-${p.id}" value="${p.credits}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px; color:#0f172a;">
+            <input type="number" id="plan-credits-${p.id}" value="${p.credits}" data-orig="${p.credits}" disabled onwheel="this.blur()" class="admin-modal-input plan-field-${p.id}" style="width:100%; box-sizing:border-box; padding:8px 10px; color:#0f172a; background:#f8fafc; border:1px solid #e2e8f0;">
           </div>
           <div>
             <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Monthly Images</label>
-            <input type="number" id="plan-quota-${p.id}" value="${p.monthly_quota}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px; color:#0f172a;">
+            <input type="number" id="plan-quota-${p.id}" value="${p.monthly_quota}" data-orig="${p.monthly_quota}" disabled onwheel="this.blur()" class="admin-modal-input plan-field-${p.id}" style="width:100%; box-sizing:border-box; padding:8px 10px; color:#0f172a; background:#f8fafc; border:1px solid #e2e8f0;">
           </div>
         </div>
 
-        <button class="process-action-btn btn-save-plan" data-plan-id="${p.id}" style="width:100%; padding:8px; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px;">
-          💾 Save Changes
-        </button>
+        <div id="plan-action-default-${p.id}">
+          <button class="admin-action-btn btn-edit-plan" data-plan-id="${p.id}" style="width:100%; padding:9px; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px; border:1px solid #cbd5e1; background:#ffffff; color:#334155; border-radius:8px; cursor:pointer;">
+            ✏️ Edit Plan
+          </button>
+        </div>
+
+        <div id="plan-action-editing-${p.id}" style="display:none; gap:8px;">
+          <button class="admin-action-btn btn-cancel-plan" data-plan-id="${p.id}" style="flex:1; padding:9px; font-size:12px; font-weight:600; border:1px solid #cbd5e1; background:#f1f5f9; color:#475569; border-radius:8px; cursor:pointer;">
+            ✕ Cancel
+          </button>
+          <button class="process-action-btn btn-save-plan" data-plan-id="${p.id}" style="flex:2; padding:9px; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px; background:#4f46e5; color:#ffffff; border-radius:8px; cursor:pointer;">
+            💾 Save Changes
+          </button>
+        </div>
       </div>
     `).join('');
 
     const packsHtml = (adminPlansData?.credit_packs || []).map(pk => `
-      <div class="admin-plan-card" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:20px; box-shadow:0 4px 12px rgba(0,0,0,0.03);">
+      <div class="admin-plan-card" id="card-pack-${pk.id}" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:20px; box-shadow:0 4px 12px rgba(0,0,0,0.03); transition:all 0.2s;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
           <h4 style="font-size:15px; font-weight:800; color:#0f172a; margin:0;">${pk.title}</h4>
           ${pk.badge ? `<span class="cs-badge cs-badge--primary">${pk.badge}</span>` : ''}
@@ -4033,25 +4044,36 @@ function renderTabContentHtml() {
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
           <div>
             <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">INR Price (₹)</label>
-            <input type="number" id="pack-inr-${pk.id}" value="${pk.price_inr}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px; font-weight:700;">
+            <input type="number" id="pack-inr-${pk.id}" value="${pk.price_inr}" data-orig="${pk.price_inr}" disabled onwheel="this.blur()" class="admin-modal-input pack-field-${pk.id}" style="width:100%; box-sizing:border-box; padding:8px 10px; font-weight:700; background:#f8fafc; border:1px solid #e2e8f0;">
           </div>
           <div>
             <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">USD Price ($)</label>
-            <input type="number" id="pack-usd-${pk.id}" value="${pk.price_usd}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px; font-weight:700;">
+            <input type="number" id="pack-usd-${pk.id}" value="${pk.price_usd}" data-orig="${pk.price_usd}" disabled onwheel="this.blur()" class="admin-modal-input pack-field-${pk.id}" style="width:100%; box-sizing:border-box; padding:8px 10px; font-weight:700; background:#f8fafc; border:1px solid #e2e8f0;">
           </div>
           <div>
             <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Credits</label>
-            <input type="number" id="pack-credits-${pk.id}" value="${pk.credits}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px;">
+            <input type="number" id="pack-credits-${pk.id}" value="${pk.credits}" data-orig="${pk.credits}" disabled onwheel="this.blur()" class="admin-modal-input pack-field-${pk.id}" style="width:100%; box-sizing:border-box; padding:8px 10px; background:#f8fafc; border:1px solid #e2e8f0;">
           </div>
           <div>
             <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Images</label>
-            <input type="number" id="pack-images-${pk.id}" value="${pk.images}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px;">
+            <input type="number" id="pack-images-${pk.id}" value="${pk.images}" data-orig="${pk.images}" disabled onwheel="this.blur()" class="admin-modal-input pack-field-${pk.id}" style="width:100%; box-sizing:border-box; padding:8px 10px; background:#f8fafc; border:1px solid #e2e8f0;">
           </div>
         </div>
 
-        <button class="process-action-btn btn-save-pack" data-pack-id="${pk.id}" style="width:100%; padding:8px; font-size:12px; font-weight:700; background:#059669; display:flex; align-items:center; justify-content:center; gap:6px;">
-          💾 Save Pack Pricing
-        </button>
+        <div id="pack-action-default-${pk.id}">
+          <button class="admin-action-btn btn-edit-pack" data-pack-id="${pk.id}" style="width:100%; padding:9px; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px; border:1px solid #cbd5e1; background:#ffffff; color:#334155; border-radius:8px; cursor:pointer;">
+            ✏️ Edit Pack
+          </button>
+        </div>
+
+        <div id="pack-action-editing-${pk.id}" style="display:none; gap:8px;">
+          <button class="admin-action-btn btn-cancel-pack" data-pack-id="${pk.id}" style="flex:1; padding:9px; font-size:12px; font-weight:600; border:1px solid #cbd5e1; background:#f1f5f9; color:#475569; border-radius:8px; cursor:pointer;">
+            ✕ Cancel
+          </button>
+          <button class="process-action-btn btn-save-pack" data-pack-id="${pk.id}" style="flex:2; padding:9px; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px; background:#059669; color:#ffffff; border-radius:8px; cursor:pointer;">
+            💾 Save Changes
+          </button>
+        </div>
       </div>
     `).join('');
 
@@ -4576,13 +4598,50 @@ function attachAdminEventListeners() {
   }
 
   if (adminActiveTab === 'plans') {
+    // ── Plans Event Handlers ──
+    document.querySelectorAll('.btn-edit-plan').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const planId = btn.getAttribute('data-plan-id');
+        document.querySelectorAll(`.plan-field-${planId}`).forEach(input => {
+          input.disabled = false;
+          input.style.background = '#ffffff';
+          input.style.borderColor = '#6366f1';
+          input.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.15)';
+        });
+        document.getElementById(`plan-action-default-${planId}`).style.display = 'none';
+        const editingBox = document.getElementById(`plan-action-editing-${planId}`);
+        if (editingBox) editingBox.style.display = 'flex';
+      });
+    });
+
+    document.querySelectorAll('.btn-cancel-plan').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const planId = btn.getAttribute('data-plan-id');
+        document.querySelectorAll(`.plan-field-${planId}`).forEach(input => {
+          input.value = input.getAttribute('data-orig') || input.value;
+          input.disabled = true;
+          input.style.background = '#f8fafc';
+          input.style.borderColor = '#e2e8f0';
+          input.style.boxShadow = 'none';
+        });
+        document.getElementById(`plan-action-default-${planId}`).style.display = 'block';
+        const editingBox = document.getElementById(`plan-action-editing-${planId}`);
+        if (editingBox) editingBox.style.display = 'none';
+      });
+    });
+
     document.querySelectorAll('.btn-save-plan').forEach(btn => {
       btn.addEventListener('click', async () => {
         const planId = btn.getAttribute('data-plan-id');
-        const inr = parseInt(document.getElementById(`plan-inr-${planId}`)?.value || '0');
-        const usd = parseInt(document.getElementById(`plan-usd-${planId}`)?.value || '0');
-        const credits = parseInt(document.getElementById(`plan-credits-${planId}`)?.value || '0');
-        const quota = parseInt(document.getElementById(`plan-quota-${planId}`)?.value || '0');
+        const inrInput = document.getElementById(`plan-inr-${planId}`);
+        const usdInput = document.getElementById(`plan-usd-${planId}`);
+        const creditsInput = document.getElementById(`plan-credits-${planId}`);
+        const quotaInput = document.getElementById(`plan-quota-${planId}`);
+
+        const inr = parseInt(inrInput?.value || '0');
+        const usd = parseInt(usdInput?.value || '0');
+        const credits = parseInt(creditsInput?.value || '0');
+        const quota = parseInt(quotaInput?.value || '0');
 
         btn.disabled = true;
         btn.innerText = 'Saving...';
@@ -4597,23 +4656,91 @@ function attachAdminEventListeners() {
               is_active: true
             })
           });
-          btn.innerText = '✓ Saved Live!';
-          setTimeout(() => { btn.innerText = '💾 Save Changes'; btn.disabled = false; }, 2000);
+
+          // Update original values
+          inrInput.setAttribute('data-orig', inr);
+          usdInput.setAttribute('data-orig', usd);
+          creditsInput.setAttribute('data-orig', credits);
+          quotaInput.setAttribute('data-orig', quota);
+
+          // Lock inputs back
+          document.querySelectorAll(`.plan-field-${planId}`).forEach(input => {
+            input.disabled = true;
+            input.style.background = '#f8fafc';
+            input.style.borderColor = '#e2e8f0';
+            input.style.boxShadow = 'none';
+          });
+
+          document.getElementById(`plan-action-default-${planId}`).style.display = 'block';
+          const editingBox = document.getElementById(`plan-action-editing-${planId}`);
+          if (editingBox) editingBox.style.display = 'none';
+
+          const editBtn = document.querySelector(`.btn-edit-plan[data-plan-id="${planId}"]`);
+          if (editBtn) {
+            editBtn.innerText = '✓ Saved Live!';
+            editBtn.style.background = '#ecfdf5';
+            editBtn.style.color = '#059669';
+            editBtn.style.borderColor = '#6ee7b7';
+            setTimeout(() => {
+              editBtn.innerText = '✏️ Edit Plan';
+              editBtn.style.background = '#ffffff';
+              editBtn.style.color = '#334155';
+              editBtn.style.borderColor = '#cbd5e1';
+            }, 2500);
+          }
         } catch (e) {
           alert('Failed to save plan: ' + e.message);
+        } finally {
           btn.disabled = false;
           btn.innerText = '💾 Save Changes';
         }
       });
     });
 
+    // ── Packs Event Handlers ──
+    document.querySelectorAll('.btn-edit-pack').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const packId = btn.getAttribute('data-pack-id');
+        document.querySelectorAll(`.pack-field-${packId}`).forEach(input => {
+          input.disabled = false;
+          input.style.background = '#ffffff';
+          input.style.borderColor = '#059669';
+          input.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.15)';
+        });
+        document.getElementById(`pack-action-default-${packId}`).style.display = 'none';
+        const editingBox = document.getElementById(`pack-action-editing-${packId}`);
+        if (editingBox) editingBox.style.display = 'flex';
+      });
+    });
+
+    document.querySelectorAll('.btn-cancel-pack').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const packId = btn.getAttribute('data-pack-id');
+        document.querySelectorAll(`.pack-field-${packId}`).forEach(input => {
+          input.value = input.getAttribute('data-orig') || input.value;
+          input.disabled = true;
+          input.style.background = '#f8fafc';
+          input.style.borderColor = '#e2e8f0';
+          input.style.boxShadow = 'none';
+        });
+        document.getElementById(`pack-action-default-${packId}`).style.display = 'block';
+        const editingBox = document.getElementById(`pack-action-editing-${packId}`);
+        if (editingBox) editingBox.style.display = 'none';
+      });
+    });
+
     document.querySelectorAll('.btn-save-pack').forEach(btn => {
       btn.addEventListener('click', async () => {
         const packId = btn.getAttribute('data-pack-id');
-        const inr = parseInt(document.getElementById(`pack-inr-${packId}`)?.value || '0');
-        const usd = parseInt(document.getElementById(`pack-usd-${packId}`)?.value || '0');
-        const credits = parseInt(document.getElementById(`pack-credits-${packId}`)?.value || '0');
-        const images = parseInt(document.getElementById(`pack-images-${packId}`)?.value || '0');
+        const inrInput = document.getElementById(`pack-inr-${packId}`);
+        const usdInput = document.getElementById(`pack-usd-${packId}`);
+        const creditsInput = document.getElementById(`pack-credits-${packId}`);
+        const imagesInput = document.getElementById(`pack-images-${packId}`);
+
+        const inr = parseInt(inrInput?.value || '0');
+        const usd = parseInt(usdInput?.value || '0');
+        const credits = parseInt(creditsInput?.value || '0');
+        const images = parseInt(imagesInput?.value || '0');
 
         btn.disabled = true;
         btn.innerText = 'Saving...';
@@ -4628,12 +4755,43 @@ function attachAdminEventListeners() {
               is_active: true
             })
           });
-          btn.innerText = '✓ Saved Live!';
-          setTimeout(() => { btn.innerText = '💾 Save Pack Pricing'; btn.disabled = false; }, 2000);
+
+          // Update original values
+          inrInput.setAttribute('data-orig', inr);
+          usdInput.setAttribute('data-orig', usd);
+          creditsInput.setAttribute('data-orig', credits);
+          imagesInput.setAttribute('data-orig', images);
+
+          // Lock inputs back
+          document.querySelectorAll(`.pack-field-${packId}`).forEach(input => {
+            input.disabled = true;
+            input.style.background = '#f8fafc';
+            input.style.borderColor = '#e2e8f0';
+            input.style.boxShadow = 'none';
+          });
+
+          document.getElementById(`pack-action-default-${packId}`).style.display = 'block';
+          const editingBox = document.getElementById(`pack-action-editing-${packId}`);
+          if (editingBox) editingBox.style.display = 'none';
+
+          const editBtn = document.querySelector(`.btn-edit-pack[data-pack-id="${packId}"]`);
+          if (editBtn) {
+            editBtn.innerText = '✓ Saved Live!';
+            editBtn.style.background = '#ecfdf5';
+            editBtn.style.color = '#059669';
+            editBtn.style.borderColor = '#6ee7b7';
+            setTimeout(() => {
+              editBtn.innerText = '✏️ Edit Pack';
+              editBtn.style.background = '#ffffff';
+              editBtn.style.color = '#334155';
+              editBtn.style.borderColor = '#cbd5e1';
+            }, 2500);
+          }
         } catch (e) {
           alert('Failed to save credit pack: ' + e.message);
+        } finally {
           btn.disabled = false;
-          btn.innerText = '💾 Save Pack Pricing';
+          btn.innerText = '💾 Save Changes';
         }
       });
     });
