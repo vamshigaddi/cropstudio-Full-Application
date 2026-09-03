@@ -2996,6 +2996,7 @@ let adminRevenueLimit = 5;
 let adminRevenueOffset = 0;
 let adminFailedJobs = [];
 let adminFailedJobsTotal = 0;
+let adminPlansData = { plans: [], credit_packs: [] };
 
 function renderTabContentHtml() {
   if (adminActiveTab === 'users') {
@@ -3964,6 +3965,91 @@ function renderTabContentHtml() {
     `;
   }
 
+  if (adminActiveTab === 'plans') {
+    const plansHtml = (adminPlansData?.plans || []).map(p => `
+      <div class="admin-plan-card" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:20px; box-shadow:0 4px 12px rgba(0,0,0,0.03);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h4 style="font-size:16px; font-weight:800; color:#0f172a; margin:0;">${p.display_name} Plan <span style="font-size:11px; font-weight:600; color:#64748b;">(${p.id})</span></h4>
+          <span class="cs-badge ${p.is_active ? 'cs-badge--success' : 'cs-badge--neutral'}">${p.is_active ? 'Active' : 'Inactive'}</span>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+          <div>
+            <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">India Price (INR ₹)</label>
+            <input type="number" id="plan-inr-${p.id}" value="${p.price_inr}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px; font-weight:700; color:#0f172a;">
+          </div>
+          <div>
+            <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Global Price (USD $)</label>
+            <input type="number" id="plan-usd-${p.id}" value="${p.price_usd}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px; font-weight:700; color:#0f172a;">
+          </div>
+          <div>
+            <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Monthly Credits</label>
+            <input type="number" id="plan-credits-${p.id}" value="${p.credits}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px; color:#0f172a;">
+          </div>
+          <div>
+            <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Monthly Images</label>
+            <input type="number" id="plan-quota-${p.id}" value="${p.monthly_quota}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px; color:#0f172a;">
+          </div>
+        </div>
+
+        <button class="process-action-btn btn-save-plan" data-plan-id="${p.id}" style="width:100%; padding:8px; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px;">
+          💾 Save Changes
+        </button>
+      </div>
+    `).join('');
+
+    const packsHtml = (adminPlansData?.credit_packs || []).map(pk => `
+      <div class="admin-plan-card" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:20px; box-shadow:0 4px 12px rgba(0,0,0,0.03);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h4 style="font-size:15px; font-weight:800; color:#0f172a; margin:0;">${pk.title}</h4>
+          ${pk.badge ? `<span class="cs-badge cs-badge--primary">${pk.badge}</span>` : ''}
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+          <div>
+            <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">INR Price (₹)</label>
+            <input type="number" id="pack-inr-${pk.id}" value="${pk.price_inr}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px; font-weight:700;">
+          </div>
+          <div>
+            <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">USD Price ($)</label>
+            <input type="number" id="pack-usd-${pk.id}" value="${pk.price_usd}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px; font-weight:700;">
+          </div>
+          <div>
+            <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Credits</label>
+            <input type="number" id="pack-credits-${pk.id}" value="${pk.credits}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px;">
+          </div>
+          <div>
+            <label style="font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Images</label>
+            <input type="number" id="pack-images-${pk.id}" value="${pk.images}" class="admin-modal-input" style="width:100%; box-sizing:border-box; padding:8px 10px;">
+          </div>
+        </div>
+
+        <button class="process-action-btn btn-save-pack" data-pack-id="${pk.id}" style="width:100%; padding:8px; font-size:12px; font-weight:700; background:#059669; display:flex; align-items:center; justify-content:center; gap:6px;">
+          💾 Save Pack Pricing
+        </button>
+      </div>
+    `).join('');
+
+    return `
+      <div class="admin-plans-manager-view">
+        <div style="margin-bottom:24px;">
+          <h3 style="font-size:20px; font-weight:800; color:#0f172a; margin-bottom:4px;">Dynamic Subscription Plans & Multi-Currency Pricing</h3>
+          <p style="font-size:13px; color:#64748b; margin:0;">Edit INR and USD prices in real-time. Changes immediately update across landing pages, app checkout, and Razorpay orders with 0 downtime.</p>
+        </div>
+
+        <h4 style="font-size:16px; font-weight:800; color:#1e293b; margin-bottom:14px;">1. Monthly Subscription Plans</h4>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:20px; margin-bottom:36px;">
+          ${plansHtml}
+        </div>
+
+        <h4 style="font-size:16px; font-weight:800; color:#1e293b; margin-bottom:14px;">2. Add-On Credit Top-Up Packs (Lifetime Validity)</h4>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:20px;">
+          ${packsHtml}
+        </div>
+      </div>
+    `;
+  }
+
   return '';
 }
 
@@ -4463,6 +4549,70 @@ function attachAdminEventListeners() {
       await renderAdminDashboard();
     });
   }
+
+  if (adminActiveTab === 'plans') {
+    document.querySelectorAll('.btn-save-plan').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const planId = btn.getAttribute('data-plan-id');
+        const inr = parseInt(document.getElementById(`plan-inr-${planId}`)?.value || '0');
+        const usd = parseInt(document.getElementById(`plan-usd-${planId}`)?.value || '0');
+        const credits = parseInt(document.getElementById(`plan-credits-${planId}`)?.value || '0');
+        const quota = parseInt(document.getElementById(`plan-quota-${planId}`)?.value || '0');
+
+        btn.disabled = true;
+        btn.innerText = 'Saving...';
+        try {
+          await apiFetch(`/billing/admin/plans/${planId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              price_inr: inr,
+              price_usd: usd,
+              credits: credits,
+              monthly_quota: quota,
+              is_active: true
+            })
+          });
+          btn.innerText = '✓ Saved Live!';
+          setTimeout(() => { btn.innerText = '💾 Save Changes'; btn.disabled = false; }, 2000);
+        } catch (e) {
+          alert('Failed to save plan: ' + e.message);
+          btn.disabled = false;
+          btn.innerText = '💾 Save Changes';
+        }
+      });
+    });
+
+    document.querySelectorAll('.btn-save-pack').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const packId = btn.getAttribute('data-pack-id');
+        const inr = parseInt(document.getElementById(`pack-inr-${packId}`)?.value || '0');
+        const usd = parseInt(document.getElementById(`pack-usd-${packId}`)?.value || '0');
+        const credits = parseInt(document.getElementById(`pack-credits-${packId}`)?.value || '0');
+        const images = parseInt(document.getElementById(`pack-images-${packId}`)?.value || '0');
+
+        btn.disabled = true;
+        btn.innerText = 'Saving...';
+        try {
+          await apiFetch(`/billing/admin/packs/${packId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              price_inr: inr,
+              price_usd: usd,
+              credits: credits,
+              images: images,
+              is_active: true
+            })
+          });
+          btn.innerText = '✓ Saved Live!';
+          setTimeout(() => { btn.innerText = '💾 Save Pack Pricing'; btn.disabled = false; }, 2000);
+        } catch (e) {
+          alert('Failed to save credit pack: ' + e.message);
+          btn.disabled = false;
+          btn.innerText = '💾 Save Pack Pricing';
+        }
+      });
+    });
+  }
 }
 
 async function renderAdminDashboard() {
@@ -4482,6 +4632,8 @@ async function renderAdminDashboard() {
       adminUsersList = res.users;
       adminUsersTotal = res.total;
       adminStats = await apiFetch('/users/admin/stats');
+    } else if (adminActiveTab === 'plans') {
+      adminPlansData = await apiFetch('/billing/admin/plans');
     } else if (adminActiveTab === 'prompts') {
       adminPromptsList = await apiFetch('/prompts/');
       if (adminPromptsList.length > 0 && !adminSelectedPromptName) {
@@ -4527,6 +4679,7 @@ async function renderAdminDashboard() {
 
         <div class="admin-tabs">
           <button class="admin-tab ${adminActiveTab === 'users' ? 'admin-tab--active' : ''}" data-tab="users">Users & Plans</button>
+          <button class="admin-tab ${adminActiveTab === 'plans' ? 'admin-tab--active' : ''}" data-tab="plans">💳 Plans & Pricing</button>
           <button class="admin-tab ${adminActiveTab === 'revenue' ? 'admin-tab--active' : ''}" data-tab="revenue">💰 Revenue & MRR</button>
           <button class="admin-tab ${adminActiveTab === 'issues' ? 'admin-tab--active' : ''}" data-tab="issues">🛠️ Issue Debugger</button>
           <button class="admin-tab ${adminActiveTab === 'prompts' ? 'admin-tab--active' : ''}" data-tab="prompts">Prompt Templates</button>
@@ -4747,6 +4900,16 @@ function openPricingModal(initialTab = 'plans') {
   if (existing) existing.remove();
 
   let activeTab = initialTab || 'plans';
+  let modalCurrency = 'INR';
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if (!tz.includes('Calcutta') && !tz.includes('Kolkata') && !tz.includes('India')) {
+      modalCurrency = 'USD';
+    }
+  } catch (e) {
+    modalCurrency = 'INR';
+  }
+
   const currentTier = appState.user && appState.user.profile ? appState.user.profile.subscription_tier : 'free';
 
   const modalContainer = document.createElement('div');
@@ -4759,6 +4922,16 @@ function openPricingModal(initialTab = 'plans') {
   };
 
   const renderModalBody = () => {
+    const sym = modalCurrency === 'INR' ? '₹' : '$';
+    const starterPrice = modalCurrency === 'INR' ? '₹699' : '$12';
+    const proPrice = modalCurrency === 'INR' ? '₹1,999' : '$29';
+    const bizPrice = modalCurrency === 'INR' ? '₹5,999' : '$79';
+
+    const p100Price = modalCurrency === 'INR' ? '₹299' : '$5';
+    const p300Price = modalCurrency === 'INR' ? '₹799' : '$12';
+    const p600Price = modalCurrency === 'INR' ? '₹1,499' : '$22';
+    const p1500Price = modalCurrency === 'INR' ? '₹3,499' : '$49';
+
     modalContainer.innerHTML = `
       <div class="pricing-modal__content" style="max-width: 980px;">
         <button class="pricing-modal__close" id="btn-pricing-close" aria-label="Close pricing">
@@ -4768,13 +4941,21 @@ function openPricingModal(initialTab = 'plans') {
           <h1 class="pricing-modal__title">${activeTab === 'plans' ? 'Upgrade Your Workspace' : 'Add-On Credit Top-Up'}</h1>
           <p class="pricing-modal__subtitle">${activeTab === 'plans' ? 'Choose the perfect monthly plan for your fashion catalog workflow. Upgrade or downgrade anytime.' : 'Top-up credits have <strong>Lifetime Validity</strong> and never expire.'}</p>
           
-          <div class="pricing-modal__toggle">
-            <button class="pricing-toggle-btn ${activeTab === 'plans' ? 'active' : ''}" id="tab-btn-plans">
-              📅 Monthly Plans (Save 30%)
-            </button>
-            <button class="pricing-toggle-btn ${activeTab === 'topup' ? 'active' : ''}" id="tab-btn-topup">
-              🪙 Add-On Top-Up Packs (No Expiry)
-            </button>
+          <div class="pricing-modal__toggle" style="display:flex; flex-wrap:wrap; justify-content:center; gap:12px; align-items:center;">
+            <div style="display:inline-flex;">
+              <button class="pricing-toggle-btn ${activeTab === 'plans' ? 'active' : ''}" id="tab-btn-plans">
+                📅 Monthly Plans (Save 30%)
+              </button>
+              <button class="pricing-toggle-btn ${activeTab === 'topup' ? 'active' : ''}" id="tab-btn-topup">
+                🪙 Add-On Top-Up Packs (No Expiry)
+              </button>
+            </div>
+
+            <!-- Currency Toggle -->
+            <div style="display:inline-flex; background:#e2e8f0; padding:2px; border-radius:100px;">
+              <button class="pricing-toggle-btn ${modalCurrency === 'INR' ? 'active' : ''}" id="modal-curr-inr" style="padding:4px 12px; font-size:12px; border-radius:100px;">🇮🇳 INR (₹)</button>
+              <button class="pricing-toggle-btn ${modalCurrency === 'USD' ? 'active' : ''}" id="modal-curr-usd" style="padding:4px 12px; font-size:12px; border-radius:100px;">🌍 USD ($)</button>
+            </div>
           </div>
         </div>
 
@@ -4785,7 +4966,7 @@ function openPricingModal(initialTab = 'plans') {
               ${currentTier === 'creator_lite' ? '<div class="plan-card__badge">Current Plan</div>' : ''}
               <span class="plan-card__name">Starter</span>
               <div class="plan-card__price-wrap">
-                <span class="plan-card__price">₹699</span>
+                <span class="plan-card__price">${starterPrice}</span>
                 <span class="plan-card__period">/month</span>
               </div>
               <p class="plan-card__desc">Ideal for boutique stores, Meesho & Amazon sellers launching product catalogs.</p>
@@ -4817,7 +4998,7 @@ function openPricingModal(initialTab = 'plans') {
               <div class="plan-card__badge">${currentTier === 'brand_pro' ? 'Current Plan' : 'Most Popular'}</div>
               <span class="plan-card__name">Pro</span>
               <div class="plan-card__price-wrap">
-                <span class="plan-card__price">₹1,999</span>
+                <span class="plan-card__price">${proPrice}</span>
                 <span class="plan-card__period">/month</span>
               </div>
               <p class="plan-card__desc">For scaling apparel brands, digital studios, and catalogs needing AI Models.</p>
@@ -4849,7 +5030,7 @@ function openPricingModal(initialTab = 'plans') {
               ${currentTier === 'enterprise_studio' ? '<div class="plan-card__badge">Current Plan</div>' : ''}
               <span class="plan-card__name">Business</span>
               <div class="plan-card__price-wrap">
-                <span class="plan-card__price">₹5,999</span>
+                <span class="plan-card__price">${bizPrice}</span>
                 <span class="plan-card__period">/month</span>
               </div>
               <p class="plan-card__desc">For high-volume fashion retailers, agencies, and enterprise catalog operations.</p>
@@ -4883,7 +5064,7 @@ function openPricingModal(initialTab = 'plans') {
               <span class="export-res-tag badge--starter" style="align-self:flex-start; margin-bottom:8px;">ENTRY</span>
               <span class="plan-card__name">Quick Pack</span>
               <div class="plan-card__price-wrap" style="margin-top:8px;">
-                <span class="plan-card__price">₹299</span>
+                <span class="plan-card__price">${p100Price}</span>
               </div>
               <p class="plan-card__desc">For quick single catalog runs.</p>
               <div class="plan-card__features" style="margin: 12px 0 16px 0; font-size:12px;">
@@ -4898,7 +5079,7 @@ function openPricingModal(initialTab = 'plans') {
               <span class="export-res-tag badge--starter" style="align-self:flex-start; margin-bottom:8px;">STANDARD</span>
               <span class="plan-card__name">Standard Pack</span>
               <div class="plan-card__price-wrap" style="margin-top:8px;">
-                <span class="plan-card__price">₹799</span>
+                <span class="plan-card__price">${p300Price}</span>
               </div>
               <p class="plan-card__desc">Ideal for small product catalog launches.</p>
               <div class="plan-card__features" style="margin: 12px 0 16px 0; font-size:12px;">
@@ -4913,7 +5094,7 @@ function openPricingModal(initialTab = 'plans') {
               <div class="plan-card__badge">Most Popular</div>
               <span class="plan-card__name">Studio Pack</span>
               <div class="plan-card__price-wrap" style="margin-top:8px;">
-                <span class="plan-card__price">₹1,499</span>
+                <span class="plan-card__price">${p600Price}</span>
               </div>
               <p class="plan-card__desc">For full apparel catalog shoots.</p>
               <div class="plan-card__features" style="margin: 12px 0 16px 0; font-size:12px;">
@@ -4928,7 +5109,7 @@ function openPricingModal(initialTab = 'plans') {
               <div class="plan-card__badge" style="background:#10b981;">Best Value</div>
               <span class="plan-card__name">Mega Pack</span>
               <div class="plan-card__price-wrap" style="margin-top:8px;">
-                <span class="plan-card__price">₹3,499</span>
+                <span class="plan-card__price">${p1500Price}</span>
               </div>
               <p class="plan-card__desc">Maximum volume studio top-up.</p>
               <div class="plan-card__features" style="margin: 12px 0 16px 0; font-size:12px;">
@@ -4966,6 +5147,18 @@ function openPricingModal(initialTab = 'plans') {
       return;
     }
 
+    // Currency Toggles
+    if (e.target.closest('#modal-curr-inr')) {
+      modalCurrency = 'INR';
+      renderModalBody();
+      return;
+    }
+    if (e.target.closest('#modal-curr-usd')) {
+      modalCurrency = 'USD';
+      renderModalBody();
+      return;
+    }
+
     // 4. Buy Top-Up Credits
     const topupBtn = e.target.closest('.btn-buy-topup');
     if (topupBtn) {
@@ -4976,7 +5169,7 @@ function openPricingModal(initialTab = 'plans') {
       try {
         const order = await apiFetch('/billing/razorpay/order', {
           method: 'POST',
-          body: JSON.stringify({ credits })
+          body: JSON.stringify({ credits, currency: modalCurrency })
         });
 
         if (order.order_id.startsWith('order_mock_') || !order.key_id) {
@@ -5001,7 +5194,8 @@ function openPricingModal(initialTab = 'plans') {
                     razorpay_order_id: response.razorpay_order_id,
                     razorpay_payment_id: response.razorpay_payment_id,
                     razorpay_signature: response.razorpay_signature,
-                    credits: credits
+                    credits: credits,
+                    currency: modalCurrency
                   })
                 });
                 await syncUserProfile();
@@ -5055,7 +5249,7 @@ function openPricingModal(initialTab = 'plans') {
       try {
         const order = await apiFetch('/billing/razorpay/order/subscription', {
           method: 'POST',
-          body: JSON.stringify({ tier: plan })
+          body: JSON.stringify({ tier: plan, currency: modalCurrency })
         });
 
         if (order.status === 'scheduled') {

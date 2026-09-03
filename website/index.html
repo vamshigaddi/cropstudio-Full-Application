@@ -623,12 +623,19 @@
     <section class="elite-section" id="pricing">
       <div class="elite-section__header">
         <h2 class="elite-section__title">Choose the right plan for you</h2>
-        <div class="pricing-toggle-container">
+        <div class="pricing-toggle-container" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 16px;">
           <div class="pricing-toggle">
             <button class="pricing-toggle-btn active" id="btn-monthly">Monthly</button>
             <button class="pricing-toggle-btn" id="btn-yearly">Yearly</button>
           </div>
-          <p class="pricing-toggle-discount">Save 20% with a yearly plan</p>
+          
+          <!-- Currency Switcher Toggle -->
+          <div class="currency-toggle" style="display: inline-flex; background: #e2e8f0; padding: 3px; border-radius: 100px;">
+            <button class="currency-toggle-btn active" id="btn-curr-inr" style="border: none; background: #ffffff; color: #0f172a; padding: 6px 14px; border-radius: 100px; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.08); transition: all 0.2s;">🇮🇳 INR (₹)</button>
+            <button class="currency-toggle-btn" id="btn-curr-usd" style="border: none; background: transparent; color: #64748b; padding: 6px 14px; border-radius: 100px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;">🌍 USD ($)</button>
+          </div>
+
+          <p class="pricing-toggle-discount" style="margin: 0; width: 100%; text-align: center;">Save 20% with a yearly plan</p>
         </div>
       </div>
 
@@ -638,7 +645,7 @@
           <div class="pricing-card__header">
             <h3 class="pricing-card__plan-name">Free</h3>
             <div class="pricing-card__price">
-              <span class="currency">₹</span><span class="amount" data-monthly="0" data-yearly="0">0</span>
+              <span class="currency" id="curr-sym-free">₹</span><span class="amount" id="amt-free" data-inr-monthly="0" data-inr-yearly="0" data-usd-monthly="0" data-usd-yearly="0">0</span>
               <span class="period">/ month</span>
             </div>
             <a href="https://app.cropstudio.automatexi.com/signup" class="pricing-btn">Continue</a>
@@ -655,7 +662,7 @@
           <div class="pricing-card__header">
             <h3 class="pricing-card__plan-name">Starter</h3>
             <div class="pricing-card__price">
-              <span class="currency">₹</span><span class="amount" data-monthly="699" data-yearly="559">699</span>
+              <span class="currency" id="curr-sym-starter">₹</span><span class="amount" id="amt-starter" data-inr-monthly="699" data-inr-yearly="559" data-usd-monthly="12" data-usd-yearly="9.5">699</span>
               <span class="period">/ month</span>
             </div>
             <a href="https://app.cropstudio.automatexi.com/signup" class="pricing-btn">Upgrade</a>
@@ -674,7 +681,7 @@
           <div class="pricing-card__header">
             <h3 class="pricing-card__plan-name">Pro</h3>
             <div class="pricing-card__price">
-              <span class="currency">₹</span><span class="amount" data-monthly="1999" data-yearly="1599">1,999</span>
+              <span class="currency" id="curr-sym-pro">₹</span><span class="amount" id="amt-pro" data-inr-monthly="1999" data-inr-yearly="1599" data-usd-monthly="29" data-usd-yearly="23">1,999</span>
               <span class="period">/ month</span>
             </div>
             <a href="https://app.cropstudio.automatexi.com/signup" class="pricing-btn pricing-btn--featured">Upgrade</a>
@@ -693,7 +700,7 @@
           <div class="pricing-card__header">
             <h3 class="pricing-card__plan-name">Business</h3>
             <div class="pricing-card__price">
-              <span class="currency">₹</span><span class="amount" data-monthly="5999" data-yearly="4799">5,999</span>
+              <span class="currency" id="curr-sym-biz">₹</span><span class="amount" id="amt-biz" data-inr-monthly="5999" data-inr-yearly="4799" data-usd-monthly="79" data-usd-yearly="63">5,999</span>
               <span class="period">/ month</span>
             </div>
             <a href="https://app.cropstudio.automatexi.com/signup" class="pricing-btn">Upgrade</a>
@@ -707,6 +714,8 @@
           </ul>
         </div>
       </div>
+
+      <!-- Trust Stripe & Checkout Guarantee -->
 
       <!-- Trust Stripe & Checkout Guarantee -->
       <div class="pricing-trust-stripe">

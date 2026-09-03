@@ -477,6 +477,122 @@ function initInteractiveSandbox() {
   }
 }
 
+// ─── Multi-Currency & Dynamic Pricing Controller ───
+let currentBillingCurrency = 'INR';
+let currentBillingCycle = 'monthly';
+
+function initPricingCurrencyToggle() {
+  const btnInr = document.getElementById('btn-curr-inr');
+  const btnUsd = document.getElementById('btn-curr-usd');
+  const btnMonthly = document.getElementById('btn-monthly');
+  const btnYearly = document.getElementById('btn-yearly');
+
+  if (!btnInr || !btnUsd) return;
+
+  // 1. Auto-detect user's country from browser timezone
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if (!tz.includes('Calcutta') && !tz.includes('Kolkata') && !tz.includes('India')) {
+      currentBillingCurrency = 'USD';
+    }
+  } catch (e) {
+    currentBillingCurrency = 'INR';
+  }
+
+  // 2. Fetch live database pricing from API if available
+  fetch(`${API_BASE_URL}/billing/plans?currency=${currentBillingCurrency}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data && data.plans) {
+        // Update DOM attributes with live DB prices
+        const starter = data.plans['creator_lite'];
+        const pro = data.plans['brand_pro'];
+        const biz = data.plans['enterprise_studio'];
+
+        const elStarter = document.getElementById('amt-starter');
+        const elPro = document.getElementById('amt-pro');
+        const elBiz = document.getElementById('amt-biz');
+
+        if (elStarter && starter) {
+          elStarter.dataset.inrMonthly = starter.price_inr;
+          elStarter.dataset.inrYearly = Math.round(starter.price_inr * 0.8);
+          elStarter.dataset.usdMonthly = starter.price_usd;
+          elStarter.dataset.usdYearly = (starter.price_usd * 0.8).toFixed(1);
+        }
+        if (elPro && pro) {
+          elPro.dataset.inrMonthly = pro.price_inr;
+          elPro.dataset.inrYearly = Math.round(pro.price_inr * 0.8);
+          elPro.dataset.usdMonthly = pro.price_usd;
+          elPro.dataset.usdYearly = Math.round(pro.price_usd * 0.8);
+        }
+        if (elBiz && biz) {
+          elBiz.dataset.inrMonthly = biz.price_inr;
+          elBiz.dataset.inrYearly = Math.round(biz.price_inr * 0.8);
+          elBiz.dataset.usdMonthly = biz.price_usd;
+          elBiz.dataset.usdYearly = Math.round(biz.price_usd * 0.8);
+        }
+        updatePricingDisplay();
+      }
+    })
+    .catch(() => {
+      // Fallback works automatically from HTML data attributes
+    });
+
+  function updatePricingDisplay() {
+    // Update currency buttons
+    btnInr.classList.toggle('active', currentBillingCurrency === 'INR');
+    btnInr.style.background = currentBillingCurrency === 'INR' ? '#ffffff' : 'transparent';
+    btnInr.style.color = currentBillingCurrency === 'INR' ? '#0f172a' : '#64748b';
+    btnInr.style.boxShadow = currentBillingCurrency === 'INR' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none';
+
+    btnUsd.classList.toggle('active', currentBillingCurrency === 'USD');
+    btnUsd.style.background = currentBillingCurrency === 'USD' ? '#ffffff' : 'transparent';
+    btnUsd.style.color = currentBillingCurrency === 'USD' ? '#0f172a' : '#64748b';
+    btnUsd.style.boxShadow = currentBillingCurrency === 'USD' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none';
+
+    // Update cycle buttons
+    if (btnMonthly && btnYearly) {
+      btnMonthly.classList.toggle('active', currentBillingCycle === 'monthly');
+      btnYearly.classList.toggle('active', currentBillingCycle === 'yearly');
+    }
+
+    const sym = currentBillingCurrency === 'INR' ? '₹' : '$';
+    ['free', 'starter', 'pro', 'biz'].forEach(id => {
+      const symEl = document.getElementById(`curr-sym-${id}`);
+      if (symEl) symEl.innerText = sym;
+    });
+
+    const isYearly = currentBillingCycle === 'yearly';
+    const isUsd = currentBillingCurrency === 'USD';
+
+    const amtStarter = document.getElementById('amt-starter');
+    if (amtStarter) {
+      const val = isUsd ? (isYearly ? amtStarter.dataset.usdYearly : amtStarter.dataset.usdMonthly) : (isYearly ? amtStarter.dataset.inrYearly : amtStarter.dataset.inrMonthly);
+      amtStarter.innerText = Number(val).toLocaleString();
+    }
+
+    const amtPro = document.getElementById('amt-pro');
+    if (amtPro) {
+      const val = isUsd ? (isYearly ? amtPro.dataset.usdYearly : amtPro.dataset.usdMonthly) : (isYearly ? amtPro.dataset.inrYearly : amtPro.dataset.inrMonthly);
+      amtPro.innerText = Number(val).toLocaleString();
+    }
+
+    const amtBiz = document.getElementById('amt-biz');
+    if (amtBiz) {
+      const val = isUsd ? (isYearly ? amtBiz.dataset.usdYearly : amtBiz.dataset.usdMonthly) : (isYearly ? amtBiz.dataset.inrYearly : amtBiz.dataset.inrMonthly);
+      amtBiz.innerText = Number(val).toLocaleString();
+    }
+  }
+
+  btnInr.addEventListener('click', () => { currentBillingCurrency = 'INR'; updatePricingDisplay(); });
+  btnUsd.addEventListener('click', () => { currentBillingCurrency = 'USD'; updatePricingDisplay(); });
+
+  if (btnMonthly) btnMonthly.addEventListener('click', () => { currentBillingCycle = 'monthly'; updatePricingDisplay(); });
+  if (btnYearly) btnYearly.addEventListener('click', () => { currentBillingCycle = 'yearly'; updatePricingDisplay(); });
+
+  updatePricingDisplay();
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   await fetchWaitlistCounts();
   renderContent();
@@ -484,5 +600,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   initEvents();
   initRoiCalculator();
   initInteractiveSandbox();
+  initPricingCurrencyToggle();
 });
 

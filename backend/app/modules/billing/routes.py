@@ -11,26 +11,32 @@ from app.modules.auth.schemas import CurrentUser
 from app.modules.billing.razorpay_client import RazorpayClient
 from app.modules.users.repository import UserRepository
 
+from app.modules.billing.models import PlanPricing, CreditPackPricing
+from sqlalchemy import select
+
 router = APIRouter(prefix="/billing", tags=["Billing"])
 
 
-# ─── Plan definitions (canonical source of truth) ───
+# ─── Plan definitions (fallback canonical defaults) ───
 PLAN_CONFIG: dict[str, dict] = {
     "creator_lite": {
         "display_name": "Starter",
         "price_inr": 699,
+        "price_usd": 12,
         "credits": 300,
         "monthly_quota": 30,
     },
     "brand_pro": {
         "display_name": "Pro",
         "price_inr": 1999,
+        "price_usd": 29,
         "credits": 1000,
         "monthly_quota": 100,
     },
     "enterprise_studio": {
         "display_name": "Business",
         "price_inr": 5999,
+        "price_usd": 79,
         "credits": 3000,
         "monthly_quota": 300,
     },
@@ -43,6 +49,7 @@ CREDIT_PACKS: list[dict] = [
         "credits": 100,
         "images": 10,
         "price_inr": 299,
+        "price_usd": 5,
         "title": "Quick Pack",
         "badge": "Starter",
         "features": ["10 AI Studio Images", "Lifetime Validity", "Instant Activation"]
@@ -52,6 +59,7 @@ CREDIT_PACKS: list[dict] = [
         "credits": 300,
         "images": 30,
         "price_inr": 799,
+        "price_usd": 12,
         "title": "Standard Pack",
         "badge": "Value",
         "features": ["30 AI Studio Images", "Lifetime Validity", "Instant Activation"]
@@ -61,6 +69,7 @@ CREDIT_PACKS: list[dict] = [
         "credits": 600,
         "images": 60,
         "price_inr": 1499,
+        "price_usd": 22,
         "title": "Studio Pack",
         "badge": "Most Popular",
         "features": ["60 AI Studio Images", "Lifetime Validity", "Priority Processing"]
@@ -70,6 +79,7 @@ CREDIT_PACKS: list[dict] = [
         "credits": 1500,
         "images": 150,
         "price_inr": 3499,
+        "price_usd": 49,
         "title": "Mega Pack",
         "badge": "Best Value",
         "features": ["150 AI Studio Images", "Lifetime Validity", "VIP Priority Processing"]
@@ -77,10 +87,47 @@ CREDIT_PACKS: list[dict] = [
 ]
 
 
+async def ensure_default_pricings_seeded(db: AsyncSession) -> None:
+    """Ensure database has default plan and credit pack pricing rows."""
+    # 1. Plans
+    for plan_id, config in PLAN_CONFIG.items():
+        stmt = select(PlanPricing).where(PlanPricing.id == plan_id)
+        res = await db.execute(stmt)
+        if not res.scalars().first():
+            db.add(PlanPricing(
+                id=plan_id,
+                display_name=config["display_name"],
+                price_inr=config["price_inr"],
+                price_usd=config.get("price_usd", 12),
+                credits=config["credits"],
+                monthly_quota=config["monthly_quota"],
+                is_active=True
+            ))
+
+    # 2. Credit Packs
+    for pack in CREDIT_PACKS:
+        stmt = select(CreditPackPricing).where(CreditPackPricing.id == pack["id"])
+        res = await db.execute(stmt)
+        if not res.scalars().first():
+            db.add(CreditPackPricing(
+                id=pack["id"],
+                title=pack["title"],
+                credits=pack["credits"],
+                images=pack["images"],
+                price_inr=pack["price_inr"],
+                price_usd=pack.get("price_usd", 5),
+                badge=pack.get("badge"),
+                is_active=True
+            ))
+
+    await db.commit()
+
+
 class OrderRequest(BaseModel):
     """Request payload to create a new checkout order."""
 
     credits: int = Field(..., ge=1, le=10000, description="Number of credits to purchase")
+    currency: str = Field(default="INR", description="Currency code: INR or USD")
 
 
 class OrderResponse(BaseModel):
@@ -100,6 +147,7 @@ class VerifyRequest(BaseModel):
     razorpay_payment_id: str
     razorpay_signature: str
     credits: int = Field(..., ge=1, description="Number of credits purchased")
+    currency: str = Field(default="INR", description="Currency paid in")
 
 
 class VerifyResponse(BaseModel):
@@ -109,17 +157,180 @@ class VerifyResponse(BaseModel):
     credit_balance: int
 
 
+class PlanPricingAdminUpdate(BaseModel):
+    price_inr: int = Field(..., ge=0)
+    price_usd: int = Field(..., ge=0)
+    credits: int = Field(..., ge=0)
+    monthly_quota: int = Field(..., ge=0)
+    is_active: bool = True
+
+
+class PackPricingAdminUpdate(BaseModel):
+    price_inr: int = Field(..., ge=0)
+    price_usd: int = Field(..., ge=0)
+    credits: int = Field(..., ge=0)
+    images: int = Field(..., ge=0)
+    is_active: bool = True
+
+
 def _get_razorpay_client(settings: Settings = Depends(get_settings)) -> RazorpayClient:
     """Build the Razorpay client (DI wiring)."""
     return RazorpayClient(settings)
 
 
-CREDIT_PACK_PRICING: dict[int, int] = {
-    100: 299,
-    300: 799,
-    600: 1499,
-    1500: 3499,
-}
+@router.get("/plans")
+async def get_public_plans(
+    currency: str = "INR",
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Get active subscription plans and credit packs with dynamic pricing for requested currency."""
+    await ensure_default_pricings_seeded(db)
+    curr = currency.upper()
+
+    # Query plans
+    stmt_plans = select(PlanPricing).where(PlanPricing.is_active == True)
+    res_plans = await db.execute(stmt_plans)
+    db_plans = res_plans.scalars().all()
+
+    # Query packs
+    stmt_packs = select(CreditPackPricing).where(CreditPackPricing.is_active == True)
+    res_packs = await db.execute(stmt_packs)
+    db_packs = res_packs.scalars().all()
+
+    currency_symbol = "₹" if curr == "INR" else "$"
+
+    formatted_plans = {}
+    for p in db_plans:
+        price = p.price_inr if curr == "INR" else p.price_usd
+        formatted_plans[p.id] = {
+            "id": p.id,
+            "display_name": p.display_name,
+            "price": price,
+            "price_inr": p.price_inr,
+            "price_usd": p.price_usd,
+            "currency": curr,
+            "currency_symbol": currency_symbol,
+            "credits": p.credits,
+            "monthly_quota": p.monthly_quota,
+        }
+
+    formatted_packs = []
+    for pk in db_packs:
+        price = pk.price_inr if curr == "INR" else pk.price_usd
+        formatted_packs.append({
+            "id": pk.id,
+            "title": pk.title,
+            "credits": pk.credits,
+            "images": pk.images,
+            "price": price,
+            "price_inr": pk.price_inr,
+            "price_usd": pk.price_usd,
+            "currency": curr,
+            "currency_symbol": currency_symbol,
+            "badge": pk.badge,
+            "features": [f"{pk.images} AI Studio Images", "Lifetime Validity", "Instant Activation"]
+        })
+
+    return {
+        "currency": curr,
+        "currency_symbol": currency_symbol,
+        "plans": formatted_plans,
+        "credit_packs": formatted_packs,
+    }
+
+
+@router.get("/admin/plans")
+async def get_admin_plans(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Admin endpoint: Get all plans and credit packs with both INR and USD pricing."""
+    await ensure_default_pricings_seeded(db)
+    stmt_plans = select(PlanPricing)
+    res_plans = await db.execute(stmt_plans)
+    plans = res_plans.scalars().all()
+
+    stmt_packs = select(CreditPackPricing)
+    res_packs = await db.execute(stmt_packs)
+    packs = res_packs.scalars().all()
+
+    return {
+        "plans": [
+            {
+                "id": p.id,
+                "display_name": p.display_name,
+                "price_inr": p.price_inr,
+                "price_usd": p.price_usd,
+                "credits": p.credits,
+                "monthly_quota": p.monthly_quota,
+                "is_active": p.is_active,
+            }
+            for p in plans
+        ],
+        "credit_packs": [
+            {
+                "id": pk.id,
+                "title": pk.title,
+                "credits": pk.credits,
+                "images": pk.images,
+                "price_inr": pk.price_inr,
+                "price_usd": pk.price_usd,
+                "badge": pk.badge,
+                "is_active": pk.is_active,
+            }
+            for pk in packs
+        ],
+    }
+
+
+@router.put("/admin/plans/{plan_id}")
+async def update_admin_plan(
+    plan_id: str,
+    payload: PlanPricingAdminUpdate,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Admin endpoint: Update subscription plan pricing and limits in real-time."""
+    await ensure_default_pricings_seeded(db)
+    stmt = select(PlanPricing).where(PlanPricing.id == plan_id)
+    res = await db.execute(stmt)
+    plan = res.scalars().first()
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
+
+    plan.price_inr = payload.price_inr
+    plan.price_usd = payload.price_usd
+    plan.credits = payload.credits
+    plan.monthly_quota = payload.monthly_quota
+    plan.is_active = payload.is_active
+    await db.commit()
+
+    return {"status": "success", "message": f"Plan {plan_id} updated successfully"}
+
+
+@router.put("/admin/packs/{pack_id}")
+async def update_admin_pack(
+    pack_id: str,
+    payload: PackPricingAdminUpdate,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Admin endpoint: Update credit pack pricing in real-time."""
+    await ensure_default_pricings_seeded(db)
+    stmt = select(CreditPackPricing).where(CreditPackPricing.id == pack_id)
+    res = await db.execute(stmt)
+    pack = res.scalars().first()
+    if not pack:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credit pack not found")
+
+    pack.price_inr = payload.price_inr
+    pack.price_usd = payload.price_usd
+    pack.credits = payload.credits
+    pack.images = payload.images
+    pack.is_active = payload.is_active
+    await db.commit()
+
+    return {"status": "success", "message": f"Credit pack {pack_id} updated successfully"}
 
 
 @router.post("/razorpay/order", response_model=OrderResponse)
@@ -129,7 +340,8 @@ async def create_razorpay_order(
     db: AsyncSession = Depends(get_db_session),
     razorpay_client: RazorpayClient = Depends(_get_razorpay_client),
 ) -> OrderResponse:
-    """Create a Razorpay order to buy credits (tiered add-on pricing)."""
+    """Create a Razorpay order to buy credits with dynamic DB pricing & multi-currency."""
+    await ensure_default_pricings_seeded(db)
     user_repo = UserRepository(db)
     user = await user_repo.get_by_supabase_id(current_user.id)
     if not user:
@@ -138,17 +350,27 @@ async def create_razorpay_order(
             detail="User not found",
         )
 
-    # Compute price in INR and convert to paise
-    if request.credits in CREDIT_PACK_PRICING:
-        price_in_inr = CREDIT_PACK_PRICING[request.credits]
-    else:
-        # Default ~2.5 INR per credit
-        price_in_inr = max(99, int(round(request.credits * 2.50)))
+    curr = request.currency.upper()
+    
+    # Query database pack pricing
+    stmt = select(CreditPackPricing).where(CreditPackPricing.credits == request.credits)
+    res = await db.execute(stmt)
+    pack = res.scalars().first()
 
-    amount_in_paise = price_in_inr * 100
+    if pack:
+        price = pack.price_inr if curr == "INR" else pack.price_usd
+    else:
+        # Fallback proportional pricing
+        if curr == "INR":
+            price = max(99, int(round(request.credits * 2.50)))
+        else:
+            price = max(3, int(round(request.credits * 0.04)))
+
+    # Amount in sub-units (paise for INR, cents for USD)
+    amount_in_subunits = price * 100
     receipt = f"rcpt_{user.id.hex[:24]}"
 
-    order_data = await razorpay_client.create_order(amount_in_paise, receipt)
+    order_data = await razorpay_client.create_order(amount_in_subunits, receipt, currency=curr)
 
     return OrderResponse(
         order_id=order_data["id"],
@@ -231,12 +453,11 @@ async def verify_razorpay_payment(
     )
 
 
-# ─── Subscription Plan Payment Schemas ───
-
 class SubscriptionOrderRequest(BaseModel):
     """Request payload to create a Razorpay order for a subscription plan."""
 
     tier: str = Field(..., description="Plan tier to subscribe to")
+    currency: str = Field(default="INR", description="Currency code: INR or USD")
 
 
 class SubscriptionOrderResponse(BaseModel):
@@ -263,6 +484,7 @@ class SubscriptionVerifyRequest(BaseModel):
     razorpay_payment_id: str
     razorpay_signature: str
     tier: str
+    currency: str = Field(default="INR", description="Currency paid in")
 
 
 class SubscriptionVerifyResponse(BaseModel):
@@ -281,11 +503,18 @@ async def create_subscription_order(
     db: AsyncSession = Depends(get_db_session),
     razorpay_client: RazorpayClient = Depends(_get_razorpay_client),
 ) -> SubscriptionOrderResponse:
-    """Create a Razorpay order for a subscription plan purchase (supporting proration upgrades and scheduled downgrades)."""
-    if request.tier not in PLAN_CONFIG:
+    """Create a Razorpay order for a subscription plan purchase (supporting dynamic DB pricing, INR/USD multi-currency, and proration)."""
+    await ensure_default_pricings_seeded(db)
+    
+    # Query database plan pricing
+    stmt = select(PlanPricing).where(PlanPricing.id == request.tier)
+    res = await db.execute(stmt)
+    db_plan = res.scalars().first()
+
+    if not db_plan or not db_plan.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid tier. Must be one of {list(PLAN_CONFIG.keys())}",
+            detail="Invalid or inactive plan tier.",
         )
 
     user_repo = UserRepository(db)
@@ -300,30 +529,34 @@ async def create_subscription_order(
             detail="You are already subscribed to this plan.",
         )
 
-    plan = PLAN_CONFIG[request.tier]
+    curr = request.currency.upper()
+    target_price = db_plan.price_inr if curr == "INR" else db_plan.price_usd
     now_utc = datetime.now(timezone.utc)
 
     # 1. New Subscription (from free plan or if previous plan has expired)
     if current_tier == "free" or not user.profile.subscription_period_end or user.profile.subscription_period_end <= now_utc:
-        amount_in_paise = plan["price_inr"] * 100
+        amount_in_subunits = target_price * 100
         receipt = f"sub_new_{request.tier[:8]}_{user.id.hex[:16]}"
-        order_data = await razorpay_client.create_order(amount_in_paise, receipt)
+        order_data = await razorpay_client.create_order(amount_in_subunits, receipt, currency=curr)
 
         return SubscriptionOrderResponse(
             order_id=order_data["id"],
             amount=order_data["amount"],
             currency=order_data["currency"],
             tier=request.tier,
-            credits=plan["credits"],
-            display_name=plan["display_name"],
+            credits=db_plan.credits,
+            display_name=db_plan.display_name,
             key_id=razorpay_client.key_id,
             prorated=False,
             status="created",
         )
 
     # 2. Existing active paid subscription
-    price_current = PLAN_CONFIG[current_tier]["price_inr"]
-    price_target = plan["price_inr"]
+    stmt_curr = select(PlanPricing).where(PlanPricing.id == current_tier)
+    res_curr = await db.execute(stmt_curr)
+    db_curr_plan = res_curr.scalars().first()
+    price_current = (db_curr_plan.price_inr if curr == "INR" else db_curr_plan.price_usd) if db_curr_plan else 0
+    price_target = target_price
 
     # Case A: UPGRADE (target price is higher than current price)
     if price_target > price_current:
@@ -345,28 +578,28 @@ async def create_subscription_order(
         ratio = min(1.0, max(0.0, remaining_sec / total_sec))
         days_remaining = round(remaining_sec / 86400.0, 1)
 
-        # Prorated calculation: Charge = (Price_Target - Price_Current) * ratio
-        diff_inr = price_target - price_current
-        prorated_charge_inr = diff_inr * ratio
-        amount_in_paise = max(100, round(prorated_charge_inr * 100))  # Minimum 1 INR (100 paise) for Razorpay
+        # Prorated calculation
+        diff_price = price_target - price_current
+        prorated_charge = diff_price * ratio
+        amount_in_subunits = max(100, round(prorated_charge * 100))
 
-        original_amount_paise = price_target * 100
-        savings_paise = original_amount_paise - amount_in_paise
+        original_amount_subunits = price_target * 100
+        savings_subunits = original_amount_subunits - amount_in_subunits
 
         receipt = f"sub_upg_{request.tier[:8]}_{user.id.hex[:16]}"
-        order_data = await razorpay_client.create_order(amount_in_paise, receipt)
+        order_data = await razorpay_client.create_order(amount_in_subunits, receipt, currency=curr)
 
         return SubscriptionOrderResponse(
             order_id=order_data["id"],
             amount=order_data["amount"],
             currency=order_data["currency"],
             tier=request.tier,
-            credits=plan["credits"],
-            display_name=plan["display_name"],
+            credits=db_plan.credits,
+            display_name=db_plan.display_name,
             key_id=razorpay_client.key_id,
             prorated=True,
-            original_amount=original_amount_paise,
-            proration_savings=savings_paise,
+            original_amount=original_amount_subunits,
+            proration_savings=savings_subunits,
             days_remaining=days_remaining,
             status="created",
         )
@@ -400,10 +633,15 @@ async def verify_subscription_payment(
     razorpay_client: RazorpayClient = Depends(_get_razorpay_client),
 ) -> SubscriptionVerifyResponse:
     """Verify Razorpay payment and atomically activate/upgrade the subscription tier."""
-    if request.tier not in PLAN_CONFIG:
+    await ensure_default_pricings_seeded(db)
+    stmt = select(PlanPricing).where(PlanPricing.id == request.tier)
+    res = await db.execute(stmt)
+    db_plan = res.scalars().first()
+
+    if not db_plan:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid tier. Must be one of {list(PLAN_CONFIG.keys())}",
+            detail="Invalid subscription plan tier.",
         )
 
     # Allow mock signatures for simulated payments
@@ -424,8 +662,9 @@ async def verify_subscription_payment(
             detail="User profile not found",
         )
 
-    plan = PLAN_CONFIG[request.tier]
     now_utc = datetime.now(timezone.utc)
+    curr = request.currency.upper()
+    paid_amount = db_plan.price_inr if curr == "INR" else db_plan.price_usd
 
     # Idempotency guard: prevent duplicate charges / double execution
     import uuid
@@ -442,20 +681,21 @@ async def verify_subscription_payment(
     # Record subscription purchase transaction for invoices & ledger
     tx_id = f"TXN-{uuid.uuid4().hex[:8].upper()}"
     inv_id = f"INV-{user.id.hex[:6].upper()}-{len(transactions)+1:03d}"
-    price_inr = plan["price_inr"]
 
     new_tx = {
         "id": tx_id,
         "invoice_id": inv_id,
         "type": "subscription",
-        "description": f"{plan['display_name']} Monthly Plan",
-        "amount_inr": price_inr,
-        "credits_granted": plan["credits"],
+        "description": f"{db_plan.display_name} Monthly Plan",
+        "amount_inr": paid_amount if curr == "INR" else int(paid_amount * 84),
+        "amount": paid_amount,
+        "currency": curr,
+        "credits_granted": db_plan.credits,
         "date": now_utc.strftime("%b %d, %Y"),
         "timestamp": now_utc.isoformat(),
         "status": "Paid",
         "payment_id": request.razorpay_payment_id,
-        "payment_method": "Razorpay (UPI / NetBanking / Cards)",
+        "payment_method": f"Razorpay ({curr})",
     }
     transactions.insert(0, new_tx)
     prefs["transactions"] = transactions
@@ -474,8 +714,8 @@ async def verify_subscription_payment(
 
     # Apply changes
     user.profile.subscription_tier = request.tier
-    user.profile.credit_balance = plan["credits"]
-    user.profile.monthly_image_quota = plan["monthly_quota"]
+    user.profile.credit_balance = db_plan.credits
+    user.profile.monthly_image_quota = db_plan.monthly_quota
     user.profile.pending_downgrade_tier = None  # Clear any scheduled downgrades
 
     await db.commit()

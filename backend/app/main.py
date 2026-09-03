@@ -57,6 +57,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
             import app.modules.audit.models  # noqa
             import app.modules.waitlist.models  # noqa
             import app.modules.generation.models  # noqa
+            import app.modules.billing.models  # noqa
 
             if _engine:
                 async with _engine.begin() as conn:

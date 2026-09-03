@@ -15,11 +15,12 @@ class RazorpayClient:
         self.key_id = settings.razorpay_key_id
         self.key_secret = settings.razorpay_key_secret
 
-    async def create_order(self, amount_in_paise: int, receipt: str) -> dict[str, Any]:
+    async def create_order(self, amount: int, receipt: str, currency: str = "INR") -> dict[str, Any]:
         """Create a Razorpay order via REST API.
 
         If API keys are not configured, it will simulate/mock order creation for testing.
         """
+        curr = currency.upper()
         if not self.key_id or not self.key_secret:
             # Mock mode
             import uuid
@@ -27,10 +28,10 @@ class RazorpayClient:
             return {
                 "id": f"order_mock_{uuid.uuid4().hex[:12]}",
                 "entity": "order",
-                "amount": amount_in_paise,
+                "amount": amount,
                 "amount_paid": 0,
-                "amount_due": amount_in_paise,
-                "currency": "INR",
+                "amount_due": amount,
+                "currency": curr,
                 "receipt": receipt,
                 "status": "created",
                 "attempts": 0,
@@ -42,8 +43,8 @@ class RazorpayClient:
         url = "https://api.razorpay.com/v1/orders"
         auth = (self.key_id, self.key_secret)
         payload = {
-            "amount": amount_in_paise,
-            "currency": "INR",
+            "amount": amount,
+            "currency": curr,
             "receipt": receipt,
         }
 
