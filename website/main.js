@@ -1,4 +1,4 @@
-const API_BASE_URL = (typeof window !== 'undefined' && window.VITE_API_BASE_URL) || 'https://api.cropstudio.automatexi.com/api/v1';
+const API_BASE_URL = (typeof window !== 'undefined' && window.VITE_API_BASE_URL) || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? 'http://localhost:8000/api/v1' : 'https://api.cropstudio.automatexi.com/api/v1');
 const WAITLIST_API = `${API_BASE_URL}/waitlist`;
 
 const waitlistCategories = [

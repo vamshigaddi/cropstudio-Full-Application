@@ -73,7 +73,7 @@ const appState = {
   },
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.cropstudio.automatexi.com/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? 'http://localhost:8000/api/v1' : 'https://api.cropstudio.automatexi.com/api/v1');
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://vhooqkuiiwskjymselhp.supabase.co';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_jKsXovWfGyHsjtAt14MAiQ_iDLEdVoZ';
 let supabaseClient = null;
