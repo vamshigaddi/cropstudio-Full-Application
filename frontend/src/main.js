@@ -7559,6 +7559,19 @@ function initDevSimulator() {
 
 // ─── Boot Flow ───
 async function bootApp() {
+  // Check if Supabase client has an active OAuth session (e.g. after Google redirect)
+  if (typeof supabaseClient !== 'undefined' && supabaseClient && supabaseClient.auth) {
+    try {
+      const { data } = await supabaseClient.auth.getSession();
+      if (data?.session?.access_token) {
+        appState.token = data.session.access_token;
+        localStorage.setItem('cs_token', appState.token);
+      }
+    } catch (sessionErr) {
+      console.warn('Failed to retrieve Supabase session:', sessionErr);
+    }
+  }
+
   if (appState.token === 'null' || appState.token === 'undefined') {
     appState.token = '';
     appState.user = null;
