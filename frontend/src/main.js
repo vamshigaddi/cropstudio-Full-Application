@@ -74,11 +74,18 @@ const appState = {
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.cropstudio.automatexi.com/api/v1';
-const SUPABASE_URL = 'https://vhooqkuiiwskjymselhp.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_jKsXovWfGyHsjtAt14MAiQ_iDLEdVoZ';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://vhooqkuiiwskjymselhp.supabase.co';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_jKsXovWfGyHsjtAt14MAiQ_iDLEdVoZ';
 let supabaseClient = null;
 
-if (window.supabase) {
+function getSupabase() {
+  if (!supabaseClient && typeof window !== 'undefined' && window.supabase) {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  return supabaseClient;
+}
+
+if (typeof window !== 'undefined' && window.supabase) {
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
@@ -2592,8 +2599,9 @@ function initAuthEvents(currentMode) {
   if (googleBtn) {
     googleBtn.addEventListener('click', async () => {
       try {
-        if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
-          const { error } = await supabaseClient.auth.signInWithOAuth({
+        const client = getSupabase();
+        if (client && client.auth) {
+          const { error } = await client.auth.signInWithOAuth({
             provider: 'google',
             options: {
               redirectTo: window.location.origin
@@ -2614,23 +2622,40 @@ function initAuthEvents(currentMode) {
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = document.getElementById('auth-email').value;
+      const email = document.getElementById('auth-email').value.trim();
       const password = document.getElementById('auth-password').value;
       const submitBtn = form.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
       submitBtn.innerHTML = `<span>Authenticating...</span>`;
 
       try {
+        const client = getSupabase();
+        if (!client) throw new Error('Supabase client is initializing. Please try again in a moment.');
+
         if (currentMode === 'signin') {
-          const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-          if (error) throw error;
+          const { data, error } = await client.auth.signInWithPassword({ email, password });
+          if (error) {
+            if (error.message && error.message.toLowerCase().includes('invalid login credentials')) {
+              throw new Error('Invalid email or password. If you haven\'t signed up yet, please click "Create one" below or sign in with Google.');
+            }
+            throw error;
+          }
+          if (!data || !data.session) {
+            throw new Error('Please confirm your email address or check your login credentials.');
+          }
           appState.token = data.session.access_token;
           localStorage.setItem('cs_token', appState.token);
           await bootApp();
         } else {
-          const { data, error } = await supabaseClient.auth.signUp({ email, password });
+          const { data, error } = await client.auth.signUp({ email, password });
           if (error) throw error;
-          renderAuth('signin', '🎉 Account created! Please log in with your credentials.');
+          if (data && data.session && data.session.access_token) {
+            appState.token = data.session.access_token;
+            localStorage.setItem('cs_token', appState.token);
+            await bootApp();
+          } else {
+            renderAuth('signin', '🎉 Account created! Please log in with your credentials.');
+          }
         }
       } catch (err) {
         renderAuth(currentMode, err.message);
