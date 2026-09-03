@@ -11,6 +11,8 @@
 
 ## Primary Tools & Solutions
 - [Homepage & Features](https://cropstudio.automatexi.com/): Overview of AI tools, ROI calculator, and pricing.
+- [Free E-Commerce Image Resizer](https://cropstudio.automatexi.com/tools/ecommerce-image-resizer.html): Free client-side tool to crop, pad, and convert product photos for Amazon, Myntra (3:4), Flipkart, and Meesho.
+- [Free Amazon White Background Checker](https://cropstudio.automatexi.com/tools/amazon-white-background-checker.html): Free diagnostic tool to verify if product backgrounds meet RGB (255, 255, 255) compliance.
 - [Amazon Product Photography AI](https://cropstudio.automatexi.com/tools/amazon-product-photography.html): 100% compliant 1:1 pure white background studio tool.
 - [Myntra Model Photoshoot AI](https://cropstudio.automatexi.com/tools/myntra-model-photoshoot.html): 3:4 portrait on-model photoshoot engine with realistic Indian models.
 - [Saree Model Photoshoot AI](https://cropstudio.automatexi.com/tools/saree-model-photoshoot.html): Dedicated saree and lehenga AI model draping engine.

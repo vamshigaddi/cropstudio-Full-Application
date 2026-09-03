@@ -42,9 +42,23 @@
 
   <url>
     <loc>https://cropstudio.automatexi.com/tools/bulk-background-remover.html</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-09-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://cropstudio.automatexi.com/tools/ecommerce-image-resizer.html</loc>
+    <lastmod>2026-09-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://cropstudio.automatexi.com/tools/amazon-white-background-checker.html</loc>
+    <lastmod>2026-09-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
   </url>
 
   <url>

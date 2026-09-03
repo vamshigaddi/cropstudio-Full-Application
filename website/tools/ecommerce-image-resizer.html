@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Free E-Commerce Image Resizer & Cropper | CropStudio</title>
+  <meta name="description" content="Free online e-commerce image resizer. 1-click crop and convert product photos for Amazon 1:1 (2000x2000), Myntra 3:4 (1080x1440), Flipkart, and Meesho.">
+  <meta name="keywords" content="ecommerce image resizer, amazon product photo resizer 2000x2000, myntra 3:4 image cropper, flipkart photo converter, meesho image size">
+  <link rel="canonical" href="https://cropstudio.automatexi.com/tools/ecommerce-image-resizer.html">
+  
+  <!-- Open Graph / Social -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://cropstudio.automatexi.com/tools/ecommerce-image-resizer.html">
+  <meta property="og:title" content="Free E-Commerce Image Resizer & Cropper | CropStudio">
+  <meta property="og:description" content="Free online e-commerce image resizer. 1-click crop and convert product photos for Amazon 1:1, Myntra 3:4, Flipkart, and Meesho.">
+  <meta property="og:image" content="https://cropstudio.automatexi.com/images/landing/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Free E-Commerce Image Resizer & Cropper | CropStudio">
+  <meta name="twitter:description" content="Free online e-commerce image resizer. 1-click crop and convert product photos for Amazon 1:1, Myntra 3:4, Flipkart, and Meesho.">
+
+  <!-- Schema.org JSON-LD WebApplication -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Free E-Commerce Product Image Resizer & Cropper",
+    "url": "https://cropstudio.automatexi.com/tools/ecommerce-image-resizer.html",
+    "description": "Free client-side tool to crop, resize, and pad product photos for Amazon India, Myntra, Flipkart, Meesho, and Shopify with 1-click presets.",
+    "applicationCategory": "DesignApplication",
+    "operatingSystem": "All",
+    "browserRequirements": "Requires JavaScript. Requires HTML5.",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "CropStudio AI",
+      "url": "https://cropstudio.automatexi.com"
+    }
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+  <style>
+    .tool-page-wrapper {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 120px 24px 80px;
+    }
+    .tool-header-block {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .free-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #ecfdf5;
+      color: #059669;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 6px 16px;
+      border-radius: 100px;
+      border: 1px solid #a7f3d0;
+      margin-bottom: 16px;
+    }
+    .tool-h1 {
+      font-size: clamp(30px, 4vw, 44px);
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.25;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }
+    .tool-subtext {
+      font-size: 16px;
+      color: #64748b;
+      max-width: 680px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+    
+    /* Interactive Cropper App Container */
+    .cropper-app-box {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+      margin-bottom: 48px;
+    }
+    
+    /* Preset Selector Buttons */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .preset-card {
+      border: 2px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 14px 16px;
+      cursor: pointer;
+      background: #f8fafc;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+    .preset-card:hover {
+      border-color: #6366f1;
+      background: #ffffff;
+    }
+    .preset-card.active {
+      border-color: #6366f1;
+      background: #eef2ff;
+    }
+    .preset-platform {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .preset-ratio {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .preset-res {
+      font-size: 11px;
+      color: #6366f1;
+      font-weight: 600;
+    }
+
+    /* Upload & Canvas Workspace */
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 32px;
+    }
+    .canvas-stage-wrapper {
+      background: #f1f5f9;
+      border: 2px dashed #cbd5e1;
+      border-radius: 16px;
+      min-height: 420px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      padding: 20px;
+    }
+    #drop-zone {
+      text-align: center;
+      cursor: pointer;
+    }
+    .drop-icon {
+      width: 48px;
+      height: 48px;
+      color: #6366f1;
+      margin-bottom: 12px;
+    }
+    .canvas-preview-container {
+      display: none;
+      width: 100%;
+      height: 100%;
+      align-items: center;
+      justify-content: center;
+    }
+    #preview-canvas {
+      max-width: 100%;
+      max-height: 380px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      border-radius: 8px;
+      background: white;
+    }
+
+    /* Controls Panel */
+    .controls-sidebar {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .control-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .padding-slider-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .slider-val-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .custom-slider {
+      width: 100%;
+      accent-color: #6366f1;
+      cursor: pointer;
+    }
+    
+    .fit-mode-buttons {
+      display: flex;
+      gap: 8px;
+    }
+    .fit-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+    }
+    .fit-btn.active {
+      background: #6366f1;
+      color: white;
+      border-color: #6366f1;
+    }
+
+    .download-btn {
+      background: #22c55e;
+      color: white;
+      font-weight: 700;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(34, 197, 94, 0.3);
+    }
+    .download-btn:hover {
+      background: #16a34a;
+      transform: translateY(-2px);
+    }
+
+    /* Conversion Box */
+    .ai-upsell-box {
+      background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+      border-radius: 20px;
+      padding: 36px;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+      margin: 48px 0;
+    }
+    .ai-upsell-text h3 {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      color: #ffffff;
+    }
+    .ai-upsell-text p {
+      font-size: 14px;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+    .ai-upsell-cta {
+      background: #6366f1;
+      color: white;
+      font-weight: 700;
+      padding: 12px 24px;
+      border-radius: 12px;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: 0.2s ease;
+    }
+    .ai-upsell-cta:hover {
+      background: #4f46e5;
+    }
+
+    /* Educational Specs */
+    .seo-specs-section h2 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 16px;
+    }
+    .seo-specs-section p {
+      font-size: 15px;
+      color: #475569;
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .workspace-grid { grid-template-columns: 1fr; }
+      .ai-upsell-box { flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="header">
+    <div class="container nav-container">
+      <a href="../index.html" class="logo">
+        <span class="logo-icon">CS</span>
+        CropStudio <span class="badge">AI</span>
+      </a>
+      <nav class="nav-menu">
+        <a href="../index.html#tools" class="nav-link">Tools</a>
+        <a href="../marketplace-guidelines.html" class="nav-link">Marketplace Specs</a>
+        <a href="../resources/index.html" class="nav-link">Knowledge Hub</a>
+        <a href="../index.html#pricing" class="nav-link">Pricing</a>
+      </nav>
+      <div class="nav-actions">
+        <a href="https://app.cropstudio.automatexi.com/signin" class="btn btn-secondary">Log in</a>
+        <a href="https://app.cropstudio.automatexi.com/signup" class="btn btn-primary">Start Free Trial</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="tool-page-wrapper">
+    <!-- Header -->
+    <div class="tool-header-block">
+      <div class="free-badge">
+        <span>⚡ 100% Free Client-Side Tool</span>
+        <span>•</span>
+        <span>No Watermark • No Sign-up Required</span>
+      </div>
+      <h1 class="tool-h1">Free E-Commerce Product Image Resizer & Aspect Ratio Cropper</h1>
+      <p class="tool-subtext">
+        Instantly crop, pad, and convert any product photo to exact marketplace specifications for Amazon (1:1), Myntra (3:4), Flipkart, Meesho, and Shopify with zero loss of quality.
+      </p>
+    </div>
+
+    <!-- Main Cropper App Box -->
+    <div class="cropper-app-box">
+      <!-- 1. Select Platform Preset -->
+      <div style="margin-bottom: 12px; font-size: 13px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">
+        Step 1: Choose Target E-Commerce Marketplace
+      </div>
+      
+      <div class="preset-grid">
+        <div class="preset-card active" data-platform="amazon" data-width="2000" data-height="2000" data-ratio="1:1">
+          <div class="preset-platform">📦 Amazon India</div>
+          <div class="preset-ratio">1:1 Square (85% Fill)</div>
+          <div class="preset-res">2000 × 2000 px</div>
+        </div>
+
+        <div class="preset-card" data-platform="myntra" data-width="1080" data-height="1440" data-ratio="3:4">
+          <div class="preset-platform">👗 Myntra Fashion</div>
+          <div class="preset-ratio">3:4 Vertical Catalog</div>
+          <div class="preset-res">1080 × 1440 px</div>
+        </div>
+
+        <div class="preset-card" data-platform="flipkart" data-width="1500" data-height="1500" data-ratio="1:1">
+          <div class="preset-platform">🛍️ Flipkart</div>
+          <div class="preset-ratio">1:1 Square Zoom</div>
+          <div class="preset-res">1500 × 1500 px</div>
+        </div>
+
+        <div class="preset-card" data-platform="meesho" data-width="1000" data-height="1000" data-ratio="1:1">
+          <div class="preset-platform">🏷️ Meesho</div>
+          <div class="preset-ratio">1:1 Standard</div>
+          <div class="preset-res">1000 × 1000 px</div>
+        </div>
+
+        <div class="preset-card" data-platform="shopify" data-width="2048" data-height="2048" data-ratio="1:1">
+          <div class="preset-platform">🌐 Shopify / D2C</div>
+          <div class="preset-ratio">1:1 High-Res HD</div>
+          <div class="preset-res">2048 × 2048 px</div>
+        </div>
+      </div>
+
+      <!-- Workspace: Canvas & Controls -->
+      <div class="workspace-grid">
+        <!-- Canvas Stage -->
+        <div class="canvas-stage-wrapper" id="stage-wrapper">
+          <input type="file" id="file-input" accept="image/*" style="display: none;">
+          
+          <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+            <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <div style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">Click to Upload or Drag & Drop Product Image</div>
+            <div style="font-size: 13px; color: #64748b;">Supports PNG, JPG, JPEG, WebP up to 25MB</div>
+          </div>
+
+          <div class="canvas-preview-container" id="canvas-container">
+            <canvas id="preview-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- Controls Sidebar -->
+        <div class="controls-sidebar">
+          <div>
+            <label class="control-label">Framing & Padding Mode</label>
+            <div class="fit-mode-buttons">
+              <button class="fit-btn active" id="btn-fit" onclick="setFitMode('fit')">Fit & Pad (White)</button>
+              <button class="fit-btn" id="btn-fill" onclick="setFitMode('fill')">Smart Crop (Fill)</button>
+            </div>
+          </div>
+
+          <div class="padding-slider-box">
+            <label class="control-label">Product Fill Margin (Padding)</label>
+            <div class="slider-val-row">
+              <span>Tight (100%)</span>
+              <span id="padding-label">85% (Amazon Recommended)</span>
+              <span>Spacious (70%)</span>
+            </div>
+            <input type="range" class="custom-slider" id="padding-slider" min="60" max="100" value="85" oninput="updatePadding(this.value)">
+          </div>
+
+          <div>
+            <label class="control-label">Background Fill Color</label>
+            <div style="display: flex; gap: 8px;">
+              <button class="fit-btn active" id="bg-white-btn" style="background:#ffffff; border:1px solid #94a3b8;" onclick="setBgColor('#ffffff')">Pure White (#FFF)</button>
+              <button class="fit-btn" id="bg-transparent-btn" style="background:#f1f5f9;" onclick="setBgColor('transparent')">Transparent PNG</button>
+            </div>
+          </div>
+
+          <div style="margin-top: auto;">
+            <button class="download-btn" id="download-btn" onclick="downloadResizedImage()" style="width: 100%; display: none;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>Download Resized Image</span>
+            </button>
+            <div id="no-image-hint" style="font-size: 13px; color: #64748b; text-align: center;">Upload an image to export</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Upsell Banner -->
+    <div class="ai-upsell-box">
+      <div class="ai-upsell-text">
+        <h3>✨ Want a Real Indian Model Wearing This Product?</h3>
+        <p>Don't just crop raw flat-lays. Turn smartphone apparel photos into high-converting 4K on-model studio photoshoots with AI.</p>
+      </div>
+      <a href="https://app.cropstudio.automatexi.com/signup" class="ai-upsell-cta">Try AI Model Photoshoot Free →</a>
+    </div>
+
+    <!-- Educational SEO Guide Section -->
+    <section class="seo-specs-section">
+      <h2>Why Marketplace Image Specifications Matter for E-Commerce Sellers</h2>
+      <p>
+        Every major e-commerce platform enforces strict automated Image Quality Checks (QC). If your product photo doesn't match the exact aspect ratio or background luminance, the algorithm deprioritizes your listing or rejects the catalog entirely:
+      </p>
+      <ul>
+        <li><strong>Amazon India (1:1 Ratio):</strong> Requires a pure solid white background (RGB 255, 255, 255) with the product occupying at least 85% of the frame. Minimum zoom resolution is 1600x1600px (2000x2000px recommended).</li>
+        <li><strong>Myntra (3:4 Vertical):</strong> Mandates vertical 3:4 aspect ratio (1080x1440px) with high-fashion models cropped from forehead to lower calf for maximum catalog engagement.</li>
+        <li><strong>Flipkart (1:1 Ratio):</strong> Requires high-resolution 1500x1500px square images with clean lighting to enable high-definition hover zoom.</li>
+      </ul>
+    </section>
+  </div>
+
+  <!-- JavaScript Client-Side Engine -->
+  <script>
+    let activePreset = { width: 2000, height: 2000, platform: 'amazon' };
+    let uploadedImage = null;
+    let fitMode = 'fit';
+    let fillRatio = 0.85;
+    let bgColor = '#ffffff';
+
+    // Preset Selection
+    document.querySelectorAll('.preset-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        activePreset = {
+          width: parseInt(card.dataset.width),
+          height: parseInt(card.dataset.height),
+          platform: card.dataset.platform
+        };
+        renderCanvas();
+      });
+    });
+
+    // File Upload Handling
+    const fileInput = document.getElementById('file-input');
+    const dropZone = document.getElementById('drop-zone');
+    const stageWrapper = document.getElementById('stage-wrapper');
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        loadImage(e.target.files[0]);
+      }
+    });
+
+    // Drag & Drop
+    stageWrapper.addEventListener('dragover', (e) => { e.preventDefault(); stageWrapper.style.borderColor = '#6366f1'; });
+    stageWrapper.addEventListener('dragleave', (e) => { e.preventDefault(); stageWrapper.style.borderColor = '#cbd5e1'; });
+    stageWrapper.addEventListener('drop', (e) => {
+      e.preventDefault();
+      stageWrapper.style.borderColor = '#cbd5e1';
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        loadImage(e.dataTransfer.files[0]);
+      }
+    });
+
+    function loadImage(file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          uploadedImage = img;
+          document.getElementById('drop-zone').style.display = 'none';
+          document.getElementById('canvas-container').style.display = 'flex';
+          document.getElementById('download-btn').style.display = 'flex';
+          document.getElementById('no-image-hint').style.display = 'none';
+          renderCanvas();
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function setFitMode(mode) {
+      fitMode = mode;
+      document.getElementById('btn-fit').classList.toggle('active', mode === 'fit');
+      document.getElementById('btn-fill').classList.toggle('active', mode === 'fill');
+      renderCanvas();
+    }
+
+    function updatePadding(val) {
+      fillRatio = val / 100;
+      document.getElementById('padding-label').innerText = `${val}% Fill`;
+      renderCanvas();
+    }
+
+    function setBgColor(color) {
+      bgColor = color;
+      document.getElementById('bg-white-btn').classList.toggle('active', color === '#ffffff');
+      document.getElementById('bg-transparent-btn').classList.toggle('active', color === 'transparent');
+      renderCanvas();
+    }
+
+    function renderCanvas() {
+      if (!uploadedImage) return;
+      const canvas = document.getElementById('preview-canvas');
+      const ctx = canvas.getContext('2d');
+
+      const targetW = activePreset.width;
+      const targetH = activePreset.height;
+
+      canvas.width = targetW;
+      canvas.height = targetH;
+
+      // Clear & fill background
+      ctx.clearRect(0, 0, targetW, targetH);
+      if (bgColor !== 'transparent') {
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, targetW, targetH);
+      }
+
+      const imgW = uploadedImage.width;
+      const imgH = uploadedImage.height;
+
+      if (fitMode === 'fit') {
+        // Fit within target box with padding
+        const maxW = targetW * fillRatio;
+        const maxH = targetH * fillRatio;
+        const scale = Math.min(maxW / imgW, maxH / imgH);
+
+        const drawW = imgW * scale;
+        const drawH = imgH * scale;
+        const drawX = (targetW - drawW) / 2;
+        const drawY = (targetH - drawH) / 2;
+
+        ctx.drawImage(uploadedImage, drawX, drawY, drawW, drawH);
+      } else {
+        // Fill / Smart Crop
+        const scale = Math.max(targetW / imgW, targetH / imgH);
+        const drawW = imgW * scale;
+        const drawH = imgH * scale;
+        const drawX = (targetW - drawW) / 2;
+        const drawY = (targetH - drawH) / 2;
+
+        ctx.drawImage(uploadedImage, drawX, drawY, drawW, drawH);
+      }
+    }
+
+    function downloadResizedImage() {
+      const canvas = document.getElementById('preview-canvas');
+      if (!canvas) return;
+
+      const format = bgColor === 'transparent' ? 'image/png' : 'image/jpeg';
+      const ext = bgColor === 'transparent' ? 'png' : 'jpg';
+
+      const link = document.createElement('a');
+      link.download = `cropstudio_${activePreset.platform}_${activePreset.width}x${activePreset.height}.${ext}`;
+      link.href = canvas.toDataURL(format, 0.95);
+      link.click();
+    }
+  </script>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="footer-brand">
+        <a href="../index.html" class="logo">
+          <span class="logo-icon">CS</span>
+          CropStudio <span class="badge">AI</span>
+        </a>
+        <p>AI-Powered Ecommerce Product Photography Studio for high-growth brands.</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>Tools</h4>
+          <a href="../tools/ecommerce-image-resizer.html">Free Image Resizer</a>
+          <a href="../tools/saree-model-photoshoot.html">Saree Model Photoshoot</a>
+          <a href="../tools/amazon-product-photography.html">Amazon White BG Studio</a>
+          <a href="../tools/myntra-model-photoshoot.html">Myntra Model Generator</a>
+        </div>
+        <div class="footer-col">
+          <h4>Resources</h4>
+          <a href="../marketplace-guidelines.html">Marketplace Guidelines 2026</a>
+          <a href="../resources/best-ai-product-photography-tools-2026.html">Best AI Tools 2026</a>
+          <a href="../resources/myntra-catalog-rejection-fixes.html">Myntra Rejection Fixes</a>
+        </div>
+        <div class="footer-col">
+          <h4>Legal</h4>
+          <a href="../terms.html">Terms of Service</a>
+          <a href="../privacy.html">Privacy Policy</a>
+          <a href="../refund-policy.html">Refund Policy</a>
+          <a href="../contact.html">Contact Us</a>
+        </div>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <p>&copy; 2026 CropStudio AI. All rights reserved.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

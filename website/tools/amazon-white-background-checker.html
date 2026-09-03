@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Free Amazon White Background Checker | CropStudio</title>
+  <meta name="description" content="Free tool to check if your product photo meets Amazon RGB 255,255,255 pure white background compliance rules. Test catalog images for shadows and pass QC.">
+  <meta name="keywords" content="amazon white background checker, check amazon rgb 255 255 255, amazon image compliance test, pure white background test, ecommerce image qc">
+  <link rel="canonical" href="https://cropstudio.automatexi.com/tools/amazon-white-background-checker.html">
+  
+  <!-- Open Graph / Social -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://cropstudio.automatexi.com/tools/amazon-white-background-checker.html">
+  <meta property="og:title" content="Free Amazon White Background Checker | CropStudio">
+  <meta property="og:description" content="Free tool to check if your product photo meets Amazon RGB 255,255,255 pure white background compliance rules. Test catalog images for shadows and pass QC.">
+  <meta property="og:image" content="https://cropstudio.automatexi.com/images/landing/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Free Amazon White Background Checker | CropStudio">
+  <meta name="twitter:description" content="Free tool to check if your product photo meets Amazon RGB 255,255,255 pure white background compliance rules. Test catalog images for shadows and pass QC.">
+
+  <!-- Schema.org JSON-LD WebApplication -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Amazon Pure White Background Compliance Checker",
+    "url": "https://cropstudio.automatexi.com/tools/amazon-white-background-checker.html",
+    "description": "Free diagnostic tool for e-commerce merchants to test if product photo backgrounds meet strict Amazon RGB (255, 255, 255) pure white guidelines.",
+    "applicationCategory": "DesignApplication",
+    "operatingSystem": "All",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "CropStudio AI",
+      "url": "https://cropstudio.automatexi.com"
+    }
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+  <style>
+    .checker-page-wrapper {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 120px 24px 80px;
+    }
+    .checker-header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .free-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #eff6ff;
+      color: #2563eb;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 6px 16px;
+      border-radius: 100px;
+      border: 1px solid #bfdbfe;
+      margin-bottom: 16px;
+    }
+    .checker-h1 {
+      font-size: clamp(28px, 4vw, 42px);
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.25;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }
+    .checker-subtext {
+      font-size: 16px;
+      color: #64748b;
+      max-width: 660px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    .checker-app-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+      margin-bottom: 40px;
+    }
+
+    .stage-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+
+    .upload-zone-box {
+      background: #f8fafc;
+      border: 2px dashed #cbd5e1;
+      border-radius: 16px;
+      min-height: 380px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: pointer;
+      padding: 24px;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+    .upload-zone-box:hover {
+      border-color: #6366f1;
+      background: #f1f5f9;
+    }
+
+    .result-display-panel {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .score-banner {
+      padding: 16px 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .score-banner.pass {
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      color: #065f46;
+    }
+    .score-banner.fail {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+    }
+    .score-number {
+      font-size: 28px;
+      font-weight: 800;
+    }
+    .score-details h4 {
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 2px;
+    }
+    .score-details p {
+      font-size: 13px;
+      margin: 0;
+      opacity: 0.9;
+    }
+
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 14px;
+    }
+    .metric-row:last-child {
+      border-bottom: none;
+    }
+    .metric-name { color: #64748b; }
+    .metric-val { font-weight: 700; color: #0f172a; }
+
+    .heatmap-toggle-btn {
+      background: #e2e8f0;
+      color: #334155;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 16px;
+      transition: all 0.2s;
+    }
+    .heatmap-toggle-btn.active {
+      background: #ef4444;
+      color: white;
+    }
+
+    .fix-btn {
+      background: #6366f1;
+      color: white;
+      font-weight: 700;
+      padding: 14px;
+      border-radius: 12px;
+      text-decoration: none;
+      text-align: center;
+      display: block;
+      margin-top: 20px;
+      transition: all 0.2s;
+    }
+    .fix-btn:hover {
+      background: #4f46e5;
+      transform: translateY(-2px);
+    }
+
+    @media (max-width: 640px) {
+      .stage-layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="header">
+    <div class="container nav-container">
+      <a href="../index.html" class="logo">
+        <span class="logo-icon">CS</span>
+        CropStudio <span class="badge">AI</span>
+      </a>
+      <nav class="nav-menu">
+        <a href="../index.html#tools" class="nav-link">Tools</a>
+        <a href="../marketplace-guidelines.html" class="nav-link">Marketplace Specs</a>
+        <a href="../resources/index.html" class="nav-link">Knowledge Hub</a>
+        <a href="../index.html#pricing" class="nav-link">Pricing</a>
+      </nav>
+      <div class="nav-actions">
+        <a href="https://app.cropstudio.automatexi.com/signin" class="btn btn-secondary">Log in</a>
+        <a href="https://app.cropstudio.automatexi.com/signup" class="btn btn-primary">Start Free Trial</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="checker-page-wrapper">
+    <!-- Header -->
+    <div class="checker-header">
+      <div class="free-pill">
+        <span>🔍 Free E-Commerce QC Tool</span>
+        <span>•</span>
+        <span>Amazon India & Global Compliant</span>
+      </div>
+      <h1 class="checker-h1">Amazon Pure White Background (RGB 255,255,255) Compliance Checker</h1>
+      <p class="checker-subtext">
+        Upload any product photo to test if your background meets Amazon's strict pure white main image requirement. Detects dirty gray casts, floor shadows, and edge artifacts.
+      </p>
+    </div>
+
+    <!-- Main Card -->
+    <div class="checker-app-card">
+      <div class="stage-layout">
+        <!-- Left: Upload & Preview -->
+        <div class="upload-zone-box" id="drop-box" onclick="document.getElementById('img-input').click()">
+          <input type="file" id="img-input" accept="image/*" style="display: none;">
+          
+          <div id="empty-state">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" style="margin-bottom:12px;">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <div style="font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">Click or Drag Product Image Here</div>
+            <div style="font-size: 13px; color: #64748b;">Tests for Amazon RGB (255, 255, 255) rule</div>
+          </div>
+
+          <canvas id="checker-canvas" style="display: none; max-width: 100%; max-height: 340px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></canvas>
+        </div>
+
+        <!-- Right: Diagnostic Report -->
+        <div class="result-display-panel">
+          <div>
+            <h3 style="font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 16px;">Amazon QC Analysis</h3>
+            
+            <div id="score-container" style="display: none;">
+              <div class="score-banner pass" id="status-banner">
+                <div class="score-number" id="purity-score">99%</div>
+                <div class="score-details">
+                  <h4 id="status-title">PASSED</h4>
+                  <p id="status-desc">Meets Amazon Pure White standard.</p>
+                </div>
+              </div>
+
+              <div class="metric-row">
+                <span class="metric-name">Background Purity</span>
+                <span class="metric-val" id="val-purity">99.2%</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-name">Non-White Pixels Detected</span>
+                <span class="metric-val" id="val-dirty">0.8%</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-name">Average Corner RGB</span>
+                <span class="metric-val" id="val-corner">255, 255, 255</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-name">Amazon Main Image Status</span>
+                <span class="metric-val" id="val-status" style="color: #059669;">Eligible</span>
+              </div>
+
+              <button type="button" class="heatmap-toggle-btn" id="btn-heatmap" onclick="toggleHeatmap()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span>Highlight Non-White Shadows (Red)</span>
+              </button>
+            </div>
+
+            <div id="idle-notice" style="text-align: center; color: #64748b; font-size: 14px; padding: 40px 0;">
+              Upload a product photo on the left to run instantaneous pixel-by-pixel Amazon compliance verification.
+            </div>
+          </div>
+
+          <div id="action-box" style="display: none;">
+            <a href="https://app.cropstudio.automatexi.com/signup" class="fix-btn">
+              ⚡ Fix & Convert to 100% Pure White with CropStudio AI →
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Educational Section -->
+    <section class="seo-specs-section" style="margin-top: 48px;">
+      <h2 style="font-size: 24px; font-weight: 800; color: #0f172a; margin-bottom: 12px;">Amazon's Official Main Image Background Requirement</h2>
+      <p style="font-size: 15px; color: #475569; line-height: 1.7;">
+        According to Amazon Style Guides: <em>"The main image must have a pure white background (RGB 255, 255, 255). This creates a consistent search and browse experience for customers."</em>
+      </p>
+      <p style="font-size: 15px; color: #475569; line-height: 1.7;">
+        If your photographer uses a paper backdrop or lightbox with uneven lighting, corners often register as RGB (248, 245, 242) or (240, 240, 240). While to the human eye this looks "white", Amazon's automated image ingestion crawler detects the gray delta and suppresses your listing from search results.
+      </p>
+    </section>
+  </div>
+
+  <script>
+    let loadedImg = null;
+    let originalImageData = null;
+    let isHeatmapActive = false;
+
+    const imgInput = document.getElementById('img-input');
+    imgInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        analyzeFile(e.target.files[0]);
+      }
+    });
+
+    const dropBox = document.getElementById('drop-box');
+    dropBox.addEventListener('dragover', (e) => { e.preventDefault(); dropBox.style.borderColor = '#6366f1'; });
+    dropBox.addEventListener('dragleave', (e) => { e.preventDefault(); dropBox.style.borderColor = '#cbd5e1'; });
+    dropBox.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropBox.style.borderColor = '#cbd5e1';
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        analyzeFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    function analyzeFile(file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          loadedImg = img;
+          runInspection();
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function runInspection() {
+      const canvas = document.getElementById('checker-canvas');
+      const ctx = canvas.getContext('2d');
+
+      const maxDim = 800;
+      const scale = Math.min(maxDim / loadedImg.width, maxDim / loadedImg.height, 1);
+      canvas.width = loadedImg.width * scale;
+      canvas.height = loadedImg.height * scale;
+
+      ctx.drawImage(loadedImg, 0, 0, canvas.width, canvas.height);
+      originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      const data = originalImageData.data;
+      let totalBorderPixels = 0;
+      let pureWhiteBorderPixels = 0;
+      let cornerR = 0, cornerG = 0, cornerB = 0, cornerCount = 0;
+
+      const w = canvas.width;
+      const h = canvas.height;
+      const borderThickness = Math.max(10, Math.floor(Math.min(w, h) * 0.08));
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const isBorder = (x < borderThickness || x >= w - borderThickness || y < borderThickness || y >= h - borderThickness);
+          if (isBorder) {
+            const idx = (y * w + x) * 4;
+            const r = data[idx];
+            const g = data[idx + 1];
+            const b = data[idx + 2];
+            const a = data[idx + 3];
+
+            totalBorderPixels++;
+            // Amazon pure white threshold (RGB >= 253)
+            if (r >= 253 && g >= 253 && b >= 253) {
+              pureWhiteBorderPixels++;
+            }
+
+            // Sample 4 corners
+            if ((x < 15 && y < 15) || (x > w - 15 && y < 15) || (x < 15 && y > h - 15) || (x > w - 15 && y > h - 15)) {
+              cornerR += r;
+              cornerG += g;
+              cornerB += b;
+              cornerCount++;
+            }
+          }
+        }
+      }
+
+      const purity = Math.round((pureWhiteBorderPixels / totalBorderPixels) * 100);
+      const dirty = (100 - purity).toFixed(1);
+      const avgR = Math.round(cornerR / cornerCount);
+      const avgG = Math.round(cornerG / cornerCount);
+      const avgB = Math.round(cornerB / cornerCount);
+
+      // UI updates
+      document.getElementById('empty-state').style.display = 'none';
+      canvas.style.display = 'block';
+      document.getElementById('idle-notice').style.display = 'none';
+      document.getElementById('score-container').style.display = 'block';
+      document.getElementById('action-box').style.display = 'block';
+
+      document.getElementById('purity-score').innerText = `${purity}%`;
+      document.getElementById('val-purity').innerText = `${purity}%`;
+      document.getElementById('val-dirty').innerText = `${dirty}%`;
+      document.getElementById('val-corner').innerText = `${avgR}, ${avgG}, ${avgB}`;
+
+      const banner = document.getElementById('status-banner');
+      const title = document.getElementById('status-title');
+      const desc = document.getElementById('status-desc');
+      const valStatus = document.getElementById('val-status');
+
+      if (purity >= 95) {
+        banner.className = 'score-banner pass';
+        title.innerText = 'PASSED — 100% Amazon Compliant';
+        desc.innerText = 'Background is pure white. No rejection risk.';
+        valStatus.innerText = 'Approved (Pass)';
+        valStatus.style.color = '#059669';
+      } else {
+        banner.className = 'score-banner fail';
+        title.innerText = 'REJECTION RISK — Gray Cast Detected';
+        desc.innerText = `Found ${dirty}% non-white pixels (avg corner RGB: ${avgR},${avgG},${avgB}).`;
+        valStatus.innerText = 'High Rejection Risk';
+        valStatus.style.color = '#dc2626';
+      }
+    }
+
+    function toggleHeatmap() {
+      if (!originalImageData) return;
+      const canvas = document.getElementById('checker-canvas');
+      const ctx = canvas.getContext('2d');
+      const btn = document.getElementById('btn-heatmap');
+
+      isHeatmapActive = !isHeatmapActive;
+      btn.classList.toggle('active', isHeatmapActive);
+
+      if (isHeatmapActive) {
+        const heatmapData = ctx.createImageData(originalImageData);
+        const src = originalImageData.data;
+        const dst = heatmapData.data;
+
+        for (let i = 0; i < src.length; i += 4) {
+          const r = src[i];
+          const g = src[i + 1];
+          const b = src[i + 2];
+          const a = src[i + 3];
+
+          // If background pixel is not pure white (e.g. RGB < 252), paint RED
+          if (r > 200 && g > 200 && b > 200 && (r < 252 || g < 252 || b < 252)) {
+            dst[i] = 239;     // R
+            dst[i + 1] = 68;  // G
+            dst[i + 2] = 68;  // B
+            dst[i + 3] = 255;
+          } else {
+            dst[i] = r;
+            dst[i + 1] = g;
+            dst[i + 2] = b;
+            dst[i + 3] = a;
+          }
+        }
+        ctx.putImageData(heatmapData, 0, 0);
+      } else {
+        ctx.putImageData(originalImageData, 0, 0);
+      }
+    }
+  </script>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="footer-brand">
+        <a href="../index.html" class="logo">
+          <span class="logo-icon">CS</span>
+          CropStudio <span class="badge">AI</span>
+        </a>
+        <p>AI-Powered Ecommerce Product Photography Studio for high-growth brands.</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>Tools</h4>
+          <a href="../tools/amazon-white-background-checker.html">Amazon White BG Checker</a>
+          <a href="../tools/ecommerce-image-resizer.html">Free Image Resizer</a>
+          <a href="../tools/amazon-product-photography.html">Amazon White BG Studio</a>
+          <a href="../tools/saree-model-photoshoot.html">Saree Model Photoshoot</a>
+        </div>
+        <div class="footer-col">
+          <h4>Resources</h4>
+          <a href="../marketplace-guidelines.html">Marketplace Guidelines 2026</a>
+          <a href="../resources/best-ai-product-photography-tools-2026.html">Best AI Tools 2026</a>
+          <a href="../resources/myntra-catalog-rejection-fixes.html">Myntra Rejection Fixes</a>
+        </div>
+        <div class="footer-col">
+          <h4>Legal</h4>
+          <a href="../terms.html">Terms of Service</a>
+          <a href="../privacy.html">Privacy Policy</a>
+          <a href="../refund-policy.html">Refund Policy</a>
+          <a href="../contact.html">Contact Us</a>
+        </div>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <p>&copy; 2026 CropStudio AI. All rights reserved.</p>
+    </div>
+  </footer>
+
+</body>
+</html>
