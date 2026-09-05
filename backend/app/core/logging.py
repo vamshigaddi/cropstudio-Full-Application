@@ -56,7 +56,7 @@ def setup_logging(settings: Settings) -> None:
     root_logger.setLevel(settings.log_level.upper())
 
     # Quiet noisy third-party loggers
-    for noisy_logger in ["sqlalchemy.engine"]:
+    for noisy_logger in ["sqlalchemy.engine", "botocore", "boto3", "s3transfer", "urllib3"]:
         logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
 

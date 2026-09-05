@@ -28,6 +28,13 @@ class LocalQueueProvider(QueueProvider):
         # 1. Try direct in-memory service execution first (fastest, 0 network overhead)
         if "/workers/jobs/process" in target_uri and "job_id" in payload:
             try:
+                import app.modules.users.models  # noqa: F401
+                import app.modules.batches.models  # noqa: F401
+                import app.modules.jobs.models  # noqa: F401
+                import app.modules.prompts.models  # noqa: F401
+                import app.modules.uploads.models  # noqa: F401
+                import app.modules.generation.models  # noqa: F401
+                import app.modules.billing.models  # noqa: F401
                 from app.core.database import _session_factory
                 from app.core.events import get_event_bus
                 from app.integrations.storage.factory import get_storage_provider

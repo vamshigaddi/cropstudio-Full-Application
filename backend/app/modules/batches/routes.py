@@ -81,3 +81,62 @@ async def get_batch_details(
         batch_id=batch_id,
         current_user=current_user,
     )
+
+
+from fastapi.responses import Response
+
+@router.get("/{batch_id}/catalog-csv")
+async def export_batch_catalog_csv(
+    batch_id: UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Exports and downloads an Amazon/Shopify/Meesho ready CSV catalog sheet for the batch."""
+    from sqlalchemy import select
+    from app.modules.jobs.models import Job
+    from app.modules.uploads.models import Image
+    from app.modules.catalog.service import generate_csv_catalog_stream
+
+    stmt = (
+        select(Job, Image)
+        .join(Image, Job.image_id == Image.id)
+        .where(Job.batch_id == batch_id)
+        .order_by(Job.created_at)
+    )
+    result = await session.execute(stmt)
+    rows = result.all()
+
+    mode_labels = {
+        "try_on": "Virtual Try-On",
+        "on_model": "On-Model",
+        "folded": "Folded",
+        "flat_lay": "Flat Lay",
+        "ghost_mannequin": "Ghost Mannequin",
+        "lifestyle": "Lifestyle",
+        "closeup": "Macro Closeup",
+        "white_background": "White Background",
+        "background_removal": "Transparent Background",
+    }
+
+    items = []
+    for idx, (job, img) in enumerate(rows, start=1):
+        clean_name = img.original_filename.rsplit(".", 1)[0] if "." in img.original_filename else img.original_filename
+        mode_tag = job.generation_mode.replace("_", "-")
+        generated_name = f"{clean_name}_{mode_tag}_{idx}.png"
+
+        items.append({
+            "generated_filename": generated_name,
+            "mode": mode_labels.get(job.generation_mode, job.generation_mode.replace("_", " ").title()),
+            "original_filename": img.original_filename,
+            "catalog_data": job.catalog_data or {},
+        })
+
+    csv_content = generate_csv_catalog_stream(items)
+    
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=cropstudio_catalog_batch_{str(batch_id)[:8]}.csv"
+        }
+    )

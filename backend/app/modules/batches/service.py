@@ -64,13 +64,24 @@ class BatchService:
 
         # Credit Validation and Upfront Deduction
         # Each paid variation costs 10 credits per image.
-        paid_modes_count = sum(1 for m in modes if m not in ("background_removal", "white_background"))
-        if paid_modes_count > 0:
-            # We multiply by 10 because paid variations cost 10 credits per image
-            required_credits = len(image_ids) * paid_modes_count * 10
+        # Non-apparel items automatically skip/convert Try-On to free white_background, protecting credits.
+        image_metadata = (config or {}).get("image_metadata", {})
+        paid_modes = [m for m in modes if m not in ("background_removal", "white_background")]
+        
+        required_credits = 0
+        for image_id in image_ids:
+            meta = image_metadata.get(str(image_id), {})
+            is_apparel = meta.get("is_apparel", True)
+            for m in paid_modes:
+                # If non-clothing item and try_on, auto-converted to white_background (free 0 credits)
+                if not is_apparel and m == "try_on":
+                    continue
+                required_credits += 10
+
+        if required_credits > 0:
             if user.profile.credit_balance < required_credits:
                 raise QuotaExceededError(
-                    message=f"Insufficient credits. You need {required_credits} credits to generate these images (10 credits per paid variation), but only have {user.profile.credit_balance} credits remaining."
+                    message=f"Insufficient credits. You need {required_credits} credits to generate these images, but only have {user.profile.credit_balance} credits remaining."
                 )
             # Deduct the computed credits from the user's balance
             user.profile.credit_balance -= required_credits
@@ -86,11 +97,23 @@ class BatchService:
         # 4. Create and enqueue jobs
         for mode in modes:
             for image_id in image_ids:
+                meta = image_metadata.get(str(image_id), {})
+                is_apparel = meta.get("is_apparel", True)
+                detected_gender = meta.get("detected_gender")
+                detected_garment_type = meta.get("detected_garment_type")
+
+                # Guardrail: If non-apparel item was sent to try-on, route to clean white_background product photo
+                effective_mode = mode
+                if not is_apparel and mode == "try_on":
+                    effective_mode = "white_background"
+
                 job = Job(
                     batch_id=batch.id,
                     image_id=image_id,
-                    generation_mode=mode,
+                    generation_mode=effective_mode,
                     status="pending",
+                    detected_gender=detected_gender,
+                    detected_garment_type=detected_garment_type,
                 )
                 self._repo._session.add(job)
 

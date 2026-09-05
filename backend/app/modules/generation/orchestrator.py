@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 
 
 DEFAULT_PROMPT_TEMPLATES = {
-    "lifestyle": "A lifestyle fashion photograph of {clothing_item} in an elegant urban setting, natural atmospheric lighting, high-end e-commerce lookbook.",
+    "lifestyle": "High-end commercial editorial fashion photograph of {model_description} wearing {clothing_item} in a contemporary, understated urban lifestyle setting, 85mm f/1.4 portrait camera lens, natural soft daylight, authentic skin pores and micro-texture, real fabric weave, realistic lookbook.",
     "upscale": "Upscale this image to 4k resolution.",
     "studio_lighting": "Add professional studio lighting to this {category} product. Style: {style}.",
     "try_on": "High-end fashion e-commerce virtual try-on: A {model_description} model wearing the {clothing_item}, photorealistic, studio background. Natural collar fit around neck with clean skin, no duplicate neck tags or inner collar rings, realistic fabric drape.",
@@ -29,6 +29,7 @@ DEFAULT_PROMPT_TEMPLATES = {
     "folded": "A folded display of {clothing_item} neatly arranged on a clean shelf, product photography, soft commercial lighting.",
     "closeup": "A closeup detailed macro shot of {clothing_item} fabric texture, stitching details, high quality material focus.",
 }
+
 
 
 class GenerationOrchestrator:
@@ -276,6 +277,25 @@ class GenerationOrchestrator:
 
         # 7. Update Job with result_url
         job.result_url = output_path
+
+        # 8. Auto-extract e-commerce catalog metadata for all fashion generation modes
+        fashion_modes = (
+            "try_on", "on_model", "mannequin_to_model", "flatlay_to_model",
+            "saree_model", "ghost_mannequin", "lifestyle", "flat_lay", "folded", "closeup"
+        )
+        if config.get("generate_catalog", True) and job.generation_mode in fashion_modes:
+            try:
+                from app.modules.catalog.service import generate_catalog_copy
+                job.catalog_data = await generate_catalog_copy(result.image_bytes, result.mime_type)
+            except Exception as e:
+                logger.warning(f"Failed to auto-generate catalog metadata during orchestration: {e}")
+
+        # Eagerly flush state to session
+        try:
+            await self.session.flush()
+        except Exception:
+            pass
+
         # We don't commit here; the JobService calling this orchestrator handles the commit
         logger.info("orchestrator_completed", job_id=str(job.id))
 

@@ -74,9 +74,26 @@ def init_db(settings: Settings) -> None:
     _engine = create_engine(settings)
     _session_factory = create_session_factory(_engine)
 
+    # Ensure all ORM models are registered with SQLAlchemy declarative base
+    try:
+        import app.modules.users.models  # noqa: F401
+        import app.modules.batches.models  # noqa: F401
+        import app.modules.jobs.models  # noqa: F401
+        import app.modules.prompts.models  # noqa: F401
+        import app.modules.uploads.models  # noqa: F401
+        import app.modules.audit.models  # noqa: F401
+        import app.modules.waitlist.models  # noqa: F401
+        import app.modules.generation.models  # noqa: F401
+        import app.modules.billing.models  # noqa: F401
+        import app.modules.models.models  # noqa: F401
+    except Exception:
+        pass
+
 
 from fastapi import HTTPException, status
 
+
+from app.core.exceptions import CropStudioError
 
 async def get_db_session() -> AsyncGenerator[AsyncSession]:
     """FastAPI dependency that yields a database session and handles cleanup."""
@@ -93,7 +110,7 @@ async def get_db_session() -> AsyncGenerator[AsyncSession]:
             except Exception:
                 await session.rollback()
                 raise
-    except HTTPException:
+    except (HTTPException, CropStudioError):
         raise
     except Exception as e:
         raise HTTPException(

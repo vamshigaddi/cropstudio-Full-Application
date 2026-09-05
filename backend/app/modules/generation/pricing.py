@@ -72,6 +72,54 @@ DEFAULT_PRICING_CONFIGS: dict[str, dict[str, Any]] = {
             }
         }
     },
+    "gemini-2.5-flash-image": {
+        "provider_name": "gemini",
+        "pricing_data": {
+            "token_rates": {
+                "input_token": 0.30 / 1_000_000.0,
+                "output_image": 0.039,
+                "output_token": 39.00 / 1_000_000.0,
+            },
+            "resolutions": {
+                "enterprise_studio": {
+                    "square": "2048x2048",
+                    "landscape": "2048x1152",
+                    "portrait": "1152x2048",
+                },
+                "brand_pro": {
+                    "square": "2048x2048",
+                    "landscape": "2048x1152",
+                    "portrait": "1152x2048",
+                },
+                "creator_lite": {
+                    "square": "1024x1024",
+                    "landscape": "1536x1024",
+                    "portrait": "1024x1536",
+                },
+                "free": {
+                    "square": "1024x1024",
+                    "landscape": "1536x1024",
+                    "portrait": "1024x1536",
+                }
+            },
+            "default_qualities": {
+                "enterprise_studio": "high",
+                "brand_pro": "high",
+                "creator_lite": "medium",
+                "free": "medium",
+            }
+        }
+    },
+    "gemini-2.5-flash": {
+        "provider_name": "gemini",
+        "pricing_data": {
+            "token_rates": {
+                "input_token": 0.30 / 1_000_000.0,
+                "output_token": 2.50 / 1_000_000.0,
+            },
+            "description": "Multimodal Vision & Structured Text (Garment Taxonomy, Gender Classification & E-Commerce Catalog Generation)"
+        }
+    },
     "gemini-3.1-flash-lite-image": {
         "provider_name": "gemini",
         "pricing_data": {

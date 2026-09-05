@@ -37,14 +37,32 @@ class OpenAIProvider(AIProvider):
                 message="OpenAI API Key is not configured. Please set OPENAI_API_KEY in your environment.",
             )
 
-        has_model_img = "model_image_base64" in config and config["model_image_base64"]
+        fashion_tryon_modes = ("try_on", "on_model", "mannequin_to_model", "flatlay_to_model", "saree_model", "lifestyle")
+        gen_mode = config.get("generation_mode")
+        is_tryon_mode = (gen_mode in fashion_tryon_modes) if gen_mode else bool(config.get("model_image_base64"))
+        has_model_img = is_tryon_mode and bool(config.get("model_image_base64"))
 
         if image_bytes is not None or has_model_img:
             # Call OpenAI Responses API (Image-to-Image / Reference Image Generation)
             client = AsyncOpenAI(api_key=self.api_key)
             
-            # Form try-on prompt if model image is present
-            if has_model_img:
+            # Form prompt based on generation mode
+            if gen_mode == "lifestyle" and has_model_img:
+                prompt = (
+                    "You are an elite high-end editorial fashion photographer. "
+                    "Analyze the garment in the first image and the fashion model person in the second image. "
+                    "Dress the model person in the exact garment and photograph them in a realistic, sophisticated commercial lifestyle setting following these strict rules:\n"
+                    "1. PRESERVE MODEL IDENTITY: Maintain the exact face, facial features, hair, skin tone, and body proportions of the model person in the reference image.\n"
+                    "2. AUTHENTIC PHOTOGRAPHIC REALISM: The image must look like an authentic, professional editorial photograph shot on an 85mm f/1.4 portrait camera lens with natural soft daylight. "
+                    "Render realistic skin texture with natural skin pores, realistic hair strands, and authentic subtle skin undertones. "
+                    "Strictly avoid any artificial AI smoothness, plastic skin, CGI sheen, glowing halos, or cartoon saturation.\n"
+                    "3. TASTEFUL MODERN BACKDROP: Place the model in a contemporary, stylish, understated urban lifestyle setting (e.g. minimalist cafe terrace, modern architectural loft patio, contemporary city avenue, clean natural stone sidewalk with soft natural depth of field bokeh). "
+                    "Do NOT generate fantasy illustrations, oversaturated neon flowers, or fake props (no fake cameras in hand).\n"
+                    "4. EXACT GARMENT PRESERVATION & DRAPE: Preserve the exact color, fabric weave, graphic prints, and fit of the garment. Natural realistic cloth drape with subtle folds and authentic shadows.\n"
+                    "5. NATURAL NECK & COLLAR: The neck passes naturally through the collar with clean skin, without duplicate inner tags or inner collar rings on the chest.\n"
+                    f"Scene Details: {prompt}"
+                )
+            elif has_model_img:
                 prompt = (
                     "You are an expert fashion virtual try-on AI specialist. "
                     "Analyze the garment in the first image and the model person in the second image. "
@@ -56,6 +74,37 @@ class OpenAIProvider(AIProvider):
                     "3. ACCURATE DRAPE: Draping and fabric texture must realistically follow the shoulders, chest, and arms with natural folds and lighting.\n"
                     "4. CLEAN SKIN: The model's neck, clavicle, and throat area must be clean, natural human skin without floating tags, text, or double collar rings.\n"
                     f"Style / Scene Prompt: {prompt}"
+                )
+            elif gen_mode == "folded":
+                prompt = (
+                    "You are an expert commercial e-commerce fashion photographer. "
+                    "Take the exact apparel garment from the input image and photograph it neatly folded into a clean, crisp retail fold resting on a minimalist, elegant surface. "
+                    "Preserve the exact garment color, graphics, prints, fabric texture, and details. "
+                    "Do NOT include any human model, mannequin, face, or person in this photo. Pure folded product photography. "
+                    f"Scene Details: {prompt}"
+                )
+            elif gen_mode == "flat_lay":
+                prompt = (
+                    "You are an expert commercial e-commerce fashion photographer. "
+                    "Take the exact apparel garment from the input image and photograph it neatly arranged in a flat lay top-down composition on an aesthetic surface. "
+                    "Preserve the exact garment color, fabric texture, prints, and details. "
+                    "Do NOT include any human model, mannequin, or person in this photo. "
+                    f"Scene Details: {prompt}"
+                )
+            elif gen_mode == "ghost_mannequin":
+                prompt = (
+                    "You are an expert commercial e-commerce fashion photographer. "
+                    "Generate a 3D ghost mannequin product shot of the garment from the input image on a pure white studio background. "
+                    "The garment should have a hollow, three-dimensional fitted shape with the inner collar naturally visible, as if worn by an invisible mannequin. "
+                    "Do NOT include any human head, limbs, face, or skin. Pure ghost mannequin product photograph. "
+                    f"Scene Details: {prompt}"
+                )
+            elif gen_mode == "closeup":
+                prompt = (
+                    "You are an expert macro commercial photographer. "
+                    "Generate a macro closeup shot focusing on the fine fabric texture, weave, stitching details, and material quality of this garment. "
+                    "Do NOT include any human model or face. "
+                    f"Scene Details: {prompt}"
                 )
 
             # Build content parts

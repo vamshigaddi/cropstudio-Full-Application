@@ -43,6 +43,16 @@ PLAN_CONFIG: dict[str, dict] = {
 }
 
 
+CREDIT_PACK_PRICING: dict[int, int] = {
+    50: 99,
+    100: 299,
+    200: 299,
+    300: 699,
+    600: 699,
+    1000: 1999,
+    1500: 1499,
+}
+
 CREDIT_PACKS: list[dict] = [
     {
         "id": "pack_100",

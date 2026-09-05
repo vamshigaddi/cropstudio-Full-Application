@@ -26,6 +26,7 @@ from app.modules.uploads.routes import router as uploads_router
 from app.modules.users.routes import router as users_router
 from app.modules.audit.routes import router as audit_router
 from app.modules.waitlist.routes import router as waitlist_router
+from app.modules.models.routes import router as models_router
 
 settings = get_settings()
 logger = get_logger(__name__)
@@ -58,11 +59,16 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
             import app.modules.waitlist.models  # noqa
             import app.modules.generation.models  # noqa
             import app.modules.billing.models  # noqa
+            import app.modules.models.models  # noqa
 
             if _engine:
                 async with _engine.begin() as conn:
                     await conn.run_sync(Base.metadata.create_all)
-                logger.info("database_tables_created")
+                    from sqlalchemy import text
+                    await conn.execute(text("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS detected_gender VARCHAR(50);"))
+                    await conn.execute(text("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS detected_garment_type VARCHAR(100);"))
+                    await conn.execute(text("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS catalog_data JSON;"))
+                logger.info("database_tables_created_and_migrated")
         except Exception as e:
             logger.warning("database_table_creation_warning", error=str(e))
 
@@ -147,6 +153,7 @@ def create_app() -> FastAPI:
     app.include_router(worker_router, prefix=settings.api_prefix)
     app.include_router(audit_router, prefix=settings.api_prefix)
     app.include_router(waitlist_router, prefix=settings.api_prefix)
+    app.include_router(models_router, prefix=settings.api_prefix)
 
     # ─── Local Storage Server ───
     if settings.storage_provider == "local":

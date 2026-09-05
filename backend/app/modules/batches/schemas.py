@@ -25,6 +25,9 @@ class JobResponse(BaseModel):
     attempts: int
     error_message: str | None = None
     result_url: str | None = None
+    catalog_data: dict | None = None
+    detected_gender: str | None = None
+    detected_garment_type: str | None = None
     created_at: datetime
     updated_at: datetime
 

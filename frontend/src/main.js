@@ -45,11 +45,14 @@ const appState = {
     image: null, // { id, url, name }
     processing: false,
     resultUrl: null,
+    bgType: 'transparent', // 'transparent' or 'white'
+    refineEdges: true,
   },
   upscaleState: {
     image: null, // { id, url, name }
     processing: false,
     resultUrl: null,
+    scaleFactor: '4x', // '2x', '4x', '8x'
   },
   editState: {
     image: null, // { id, url, name }
@@ -103,6 +106,72 @@ async function getBase64FromUrl(url) {
   });
 }
 
+async function fetchImageBlob(url) {
+  if (!url) throw new Error('No URL provided');
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
+    const res = await fetch(url);
+    return await res.blob();
+  }
+
+  // 1. Try direct fetch
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      return await res.blob();
+    }
+  } catch (e) {
+    // Direct fetch failed (e.g. CORS)
+  }
+
+  // 2. Fallback to server-side proxy
+  try {
+    const proxyUrl = `${API_BASE_URL}/uploads/download-file?url=${encodeURIComponent(url)}`;
+    const headers = {};
+    if (appState.token) {
+      headers['Authorization'] = `Bearer ${appState.token}`;
+    }
+    const res = await fetch(proxyUrl, { headers });
+    if (res.ok) {
+      return await res.blob();
+    }
+  } catch (e) {
+    // Proxy fetch failed
+  }
+
+  throw new Error(`Failed to download image from ${url}`);
+}
+
+async function downloadFileFromUrl(url, filename = 'download.png') {
+  if (!url) return;
+  try {
+    const blob = await fetchImageBlob(url);
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+  } catch (err) {
+    console.warn('Blob download failed, falling back to server download stream:', err);
+    try {
+      const proxyUrl = `${API_BASE_URL}/uploads/download-file?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`;
+      const a = document.createElement('a');
+      a.href = proxyUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (finalErr) {
+      console.error('All download methods failed:', finalErr);
+      alert('Unable to download image file. Please try again.');
+    }
+  }
+}
+
+
+
 // ─── API Helper Functions ───
 function handleSessionExpired(msg = 'Your session has expired. Please sign in again.') {
   localStorage.removeItem('cs_token');
@@ -134,6 +203,10 @@ async function apiFetch(endpoint, options = {}) {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.detail || errorData.message || 'API request failed');
+  }
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('text/csv') || contentType.includes('text/plain')) {
+    return response.text();
   }
   return response.json();
 }
@@ -488,11 +561,145 @@ function renderGenerate() {
   `;
 }
 
-const onModelAvatars = [
-  { id: '/images/avatar-male.png', name: 'Male Model', tag: 'Male' },
-  { id: '/images/avatar-female.png', name: 'Female Model', tag: 'Female' },
-  { id: '/images/tanuj.jpeg', name: 'Tanuj Model', tag: 'Male' }
+let onModelAvatars = [
+  { id: '/images/avatar-female.png', name: 'Priya', gender: 'Female', tag: 'Female', category: 'Indian Ethnic & Western' },
+  { id: '/images/avatar-male.png', name: 'Alex', gender: 'Male', tag: 'Male', category: 'Western Casual' },
+  { id: '/images/tanuj.jpeg', name: 'Tanuj', gender: 'Male', tag: 'Male', category: 'Editorial & Streetwear' },
+  { id: '/images/avatar-kids-female.jpg', name: 'Maya', gender: 'Kids Female', tag: 'Kids Female', category: 'Kids Ethnic & Casual' },
+  { id: '/images/avatar-kids-male.jpg', name: 'Aarav', gender: 'Kids Male', tag: 'Kids Male', category: 'Kids Casual & Sportswear' }
 ];
+
+async function fetchAIFashionModels() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/models/`);
+    if (res.ok) {
+      const models = await res.json();
+      if (Array.isArray(models) && models.length > 0) {
+        onModelAvatars = models.map(m => {
+          const rawG = (m.gender || 'female').toLowerCase();
+          let displayGender = 'Female';
+          if (rawG.includes('kids') || rawG.includes('child')) {
+            displayGender = (rawG.includes('female') || rawG.includes('girl') || m.name === 'Maya') ? 'Kids Female' : 'Kids Male';
+          } else if (rawG === 'male' || rawG === 'men') {
+            displayGender = 'Male';
+          } else if (rawG === 'female' || rawG === 'women') {
+            displayGender = 'Female';
+          } else if (m.name === 'Alex' || m.name === 'Tanuj') {
+            displayGender = 'Male';
+          } else if (m.name === 'Maya') {
+            displayGender = 'Kids Female';
+          } else if (m.name === 'Aarav') {
+            displayGender = 'Kids Male';
+          }
+          return {
+            id: m.image_url,
+            name: m.name,
+            gender: displayGender,
+            tag: displayGender,
+            category: m.category || 'All-Rounder',
+            storage_path: m.storage_path,
+            db_id: m.id
+          };
+        });
+      }
+    }
+  } catch (e) {
+    console.warn('Could not load dynamic models from backend, using defaults:', e);
+  }
+}
+
+function getDefaultModelForGender(gender = 'female') {
+  const normalized = (gender || 'female').toLowerCase();
+  const prefs = (appState.user && appState.user.profile && appState.user.profile.preferences) || {};
+
+  // 1. Prioritize user's configured brand default models
+  if (normalized.includes('kids_female') || normalized.includes('kids female') || normalized.includes('girl')) {
+    if (prefs.default_kids_female_model) return prefs.default_kids_female_model;
+    if (prefs.default_kids_model?.includes('female')) return prefs.default_kids_model;
+  } else if (normalized.includes('kids_male') || normalized.includes('kids male') || normalized.includes('boy')) {
+    if (prefs.default_kids_male_model) return prefs.default_kids_male_model;
+    if (prefs.default_kids_model?.includes('male')) return prefs.default_kids_model;
+  } else if (normalized.includes('kid') || normalized.includes('child') || normalized.includes('teen')) {
+    if (prefs.default_kids_female_model) return prefs.default_kids_female_model;
+    if (prefs.default_kids_male_model) return prefs.default_kids_male_model;
+    if (prefs.default_kids_model) return prefs.default_kids_model;
+  } else if (normalized.includes('female') || normalized === 'women' || normalized === 'woman') {
+    if (prefs.default_female_model) return prefs.default_female_model;
+  } else if (normalized.includes('male') || normalized === 'men' || normalized === 'man') {
+    if (prefs.default_male_model) return prefs.default_male_model;
+  } else {
+    // Unisex
+    if (prefs.default_female_model) return prefs.default_female_model;
+    if (prefs.default_male_model) return prefs.default_male_model;
+  }
+
+  // 2. Dynamic model collection matching
+  if (Array.isArray(onModelAvatars) && onModelAvatars.length > 0) {
+    if (normalized.includes('kids_female') || normalized.includes('kids female') || normalized.includes('girl')) {
+      const kf = onModelAvatars.find(a => (a.gender || '').toLowerCase().includes('kids female') || (a.gender || '').toLowerCase().includes('girl') || a.name === 'Maya');
+      if (kf) return kf.id;
+    } else if (normalized.includes('kids_male') || normalized.includes('kids male') || normalized.includes('boy')) {
+      const km = onModelAvatars.find(a => (a.gender || '').toLowerCase().includes('kids male') || (a.gender || '').toLowerCase().includes('boy') || a.name === 'Aarav');
+      if (km) return km.id;
+    } else if (normalized.includes('kid') || normalized.includes('child')) {
+      const anyKid = onModelAvatars.find(a => (a.gender || '').toLowerCase().includes('kids') || (a.category || '').toLowerCase().includes('kid') || a.name === 'Maya' || a.name === 'Aarav');
+      if (anyKid) return anyKid.id;
+    } else if (normalized.includes('male') && !normalized.includes('female')) {
+      const maleModel = onModelAvatars.find(a => a.gender === 'Male' || ((a.gender || '').toLowerCase().includes('male') && !(a.gender || '').toLowerCase().includes('female') && !(a.gender || '').toLowerCase().includes('kid')));
+      if (maleModel) return maleModel.id;
+    } else {
+      const femaleModel = onModelAvatars.find(a => a.gender === 'Female' || ((a.gender || '').toLowerCase().includes('female') && !(a.gender || '').toLowerCase().includes('kid')));
+      if (femaleModel) return femaleModel.id;
+    }
+    return onModelAvatars[0].id;
+  }
+
+  // 3. Fallback assets
+  if (normalized.includes('kids_female') || normalized.includes('girl')) return '/images/avatar-kids-female.jpg';
+  if (normalized.includes('kids_male') || normalized.includes('boy')) return '/images/avatar-kids-male.jpg';
+  if (normalized.includes('kid') || normalized.includes('child')) return '/images/avatar-kids-female.jpg';
+  if (normalized.includes('male') && !normalized.includes('female')) return '/images/avatar-male.png';
+  return '/images/avatar-female.png';
+}
+
+function renderTaxoModelCards(gender = 'female', activeModelId = '') {
+  const container = document.getElementById('taxo-models-container');
+  if (!container) return;
+
+  const g = (gender || 'female').toLowerCase();
+  let filtered = onModelAvatars;
+  if (g.includes('female') || g === 'women' || g === 'woman') {
+    filtered = onModelAvatars.filter(a => a.gender === 'Female' || (a.gender || '').toLowerCase() === 'female');
+  } else if (g.includes('male') || g === 'men' || g === 'man') {
+    filtered = onModelAvatars.filter(a => a.gender === 'Male' || (a.gender || '').toLowerCase() === 'male');
+  } else if (g.includes('kid') || g.includes('child')) {
+    filtered = onModelAvatars.filter(a => (a.gender || '').toLowerCase().includes('kids') || (a.category || '').toLowerCase().includes('kid') || a.name === 'Maya' || a.name === 'Aarav');
+  }
+
+  let html = filtered.map(a => `
+    <label class="taxo-model-card ${activeModelId === a.id ? 'selected' : ''}" data-model-id="${a.id}">
+      <input type="radio" name="modal-assigned-model" value="${a.id}" ${activeModelId === a.id ? 'checked' : ''} />
+      <img class="taxo-model-avatar" src="${a.id}" alt="${a.name}" />
+      <div class="taxo-model-info">
+        <span class="taxo-model-name">${a.name}</span>
+        <span class="taxo-model-tag">${a.gender || a.tag}</span>
+      </div>
+    </label>
+  `).join('');
+
+  html += `
+    <label class="taxo-model-card ${!activeModelId ? 'selected' : ''}" data-model-id="">
+      <input type="radio" name="modal-assigned-model" value="" ${!activeModelId ? 'checked' : ''} />
+      <div class="taxo-model-avatar" style="background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:14px;">📦</div>
+      <div class="taxo-model-info">
+        <span class="taxo-model-name">None</span>
+        <span class="taxo-model-tag">Product Shot</span>
+      </div>
+    </label>
+  `;
+
+  container.innerHTML = html;
+}
 
 function renderModelPickerModal() {
   return `
@@ -519,8 +726,8 @@ function renderModelPickerModal() {
                 ` : ''}
               </div>
               <div class="model-picker-card__info">
-                <span class="model-picker-card__name">${a.name}</span>
-                <span class="model-picker-card__tag">${a.tag}</span>
+                <span class="model-picker-card__name">${a.name} - ${a.gender || a.tag}</span>
+                <span class="model-picker-card__tag">${a.gender || a.tag}</span>
               </div>
             </div>
           `).join('')}
@@ -617,12 +824,19 @@ function renderOnModel() {
 
 function renderRemoveBg() {
   const canvasContent = appState.removeBgState.image ?
-    `<img src="${appState.removeBgState.image.url}" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:var(--radius-2xl);" />` :
+    `<div class="tool-preview-container">
+       <img src="${appState.removeBgState.image.url}" alt="${appState.removeBgState.image.name || 'Uploaded image'}" />
+       <button class="tool-preview-remove-btn" id="btn-removebg-clear" title="Remove image" aria-label="Remove image">
+         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+       </button>
+     </div>` :
     `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-gray-400);"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
      <p>Upload an image to remove background</p>
      <button class="onmodel-upload-btn" id="btn-removebg-upload">Upload Image</button>`;
 
   const isBtnDisabled = !appState.removeBgState.image || appState.removeBgState.processing;
+  const currentBg = appState.removeBgState.bgType || 'transparent';
+  const isRefine = appState.removeBgState.refineEdges !== false;
 
   return `
     <input type="file" id="removebg-upload-hidden" accept="image/*" style="display:none" />
@@ -643,11 +857,11 @@ function renderRemoveBg() {
           <div class="tool-section">
             <h4>Background Type</h4>
             <div class="bg-options-grid">
-              <div class="bg-option-btn selected">
+              <div class="bg-option-btn ${currentBg === 'transparent' ? 'selected' : ''}" data-bg="transparent">
                 <div class="checker-preview"></div>
                 <span>Transparent</span>
               </div>
-              <div class="bg-option-btn">
+              <div class="bg-option-btn ${currentBg === 'white' ? 'selected' : ''}" data-bg="white">
                 <div class="white-preview"></div>
                 <span>Solid White</span>
               </div>
@@ -659,7 +873,7 @@ function renderRemoveBg() {
             <div class="toggle-row">
               <span>Refine Edges</span>
               <label class="switch">
-                <input type="checkbox" checked>
+                <input type="checkbox" id="chk-removebg-refine" ${isRefine ? 'checked' : ''}>
                 <span class="slider"></span>
               </label>
             </div>
@@ -667,7 +881,7 @@ function renderRemoveBg() {
           
           <div class="tool-right-footer">
             <button class="process-action-btn" id="btn-removebg-process" ${isBtnDisabled ? 'disabled' : ''}>
-              ${appState.removeBgState.processing ? '<span class="cs-spinner cs-spinner--sm cs-spinner--white" style="margin-right:8px;"></span> Processing...' : 'Remove Background'}
+              ${appState.removeBgState.processing ? '<span class="cs-spinner cs-spinner--sm cs-spinner--white" style="margin-right:8px;"></span> Processing...' : (currentBg === 'white' ? 'Create White Background' : 'Remove Background')}
             </button>
           </div>
         </div>
@@ -678,12 +892,18 @@ function renderRemoveBg() {
 
 function renderUpscale() {
   const canvasContent = appState.upscaleState.image ?
-    `<img src="${appState.upscaleState.image.url}" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:var(--radius-2xl);" />` :
+    `<div class="tool-preview-container">
+       <img src="${appState.upscaleState.image.url}" alt="${appState.upscaleState.image.name || 'Uploaded image'}" />
+       <button class="tool-preview-remove-btn" id="btn-upscale-clear" title="Remove image" aria-label="Remove image">
+         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+       </button>
+     </div>` :
     `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-gray-400);"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
      <p>Upload an image to enhance and upscale</p>
      <button class="onmodel-upload-btn" id="btn-upscale-upload">Upload Image</button>`;
 
   const isBtnDisabled = !appState.upscaleState.image || appState.upscaleState.processing;
+  const currentScale = appState.upscaleState.scaleFactor || '4x';
 
   return `
     <input type="file" id="upscale-upload-hidden" accept="image/*" style="display:none" />
@@ -704,15 +924,15 @@ function renderUpscale() {
           <div class="tool-section">
             <h4>Upscale Factor</h4>
             <div class="scale-options-grid">
-              <div class="scale-option-btn">2x</div>
-              <div class="scale-option-btn selected">4x</div>
-              <div class="scale-option-btn">8x</div>
+              <div class="scale-option-btn ${currentScale === '2x' ? 'selected' : ''}" data-scale="2x">2x</div>
+              <div class="scale-option-btn ${currentScale === '4x' ? 'selected' : ''}" data-scale="4x">4x</div>
+              <div class="scale-option-btn ${currentScale === '8x' ? 'selected' : ''}" data-scale="8x">8x</div>
             </div>
           </div>
           
           <div class="tool-right-footer">
             <button class="process-action-btn" id="btn-upscale-process" ${isBtnDisabled ? 'disabled' : ''}>
-              ${appState.upscaleState.processing ? '<span class="cs-spinner cs-spinner--sm cs-spinner--white" style="margin-right:8px;"></span> Upscaling Image...' : '✨ Upscale Image'}
+              ${appState.upscaleState.processing ? '<span class="cs-spinner cs-spinner--sm cs-spinner--white" style="margin-right:8px;"></span> Upscaling Image...' : `✨ Upscale Image (${currentScale})`}
             </button>
           </div>
         </div>
@@ -723,7 +943,12 @@ function renderUpscale() {
 
 function renderEdit() {
   const canvasContent = appState.editState.image ?
-    `<img src="${appState.editState.image.url}" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:var(--radius-2xl);" />` :
+    `<div class="tool-preview-container">
+       <img src="${appState.editState.image.url}" alt="${appState.editState.image.name || 'Uploaded image'}" />
+       <button class="tool-preview-remove-btn" id="btn-edit-clear" title="Remove image" aria-label="Remove image">
+         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+       </button>
+     </div>` :
     `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-gray-400);"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
      <p>Upload an image to start editing</p>
      <button class="onmodel-upload-btn" id="btn-edit-upload">Upload Image</button>`;
@@ -882,9 +1107,17 @@ function getDefaultResolutionForUser() {
 
 // Helper to crop and scale an image to target marketplace platform dimensions
 async function processImageForMarketplace(imageUrl, platformId, resolutionTier) {
-  return new Promise((resolve, reject) => {
+  let rawBlob;
+  try {
+    rawBlob = await fetchImageBlob(imageUrl);
+  } catch (e) {
+    throw e;
+  }
+
+  const objectUrl = URL.createObjectURL(rawBlob);
+
+  return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
     img.onload = () => {
       try {
         const platform = marketplacePlatforms.find(p => p.id === platformId) || marketplacePlatforms[0];
@@ -972,31 +1205,41 @@ async function processImageForMarketplace(imageUrl, platformId, resolutionTier) 
         }
 
         canvas.toBlob((blob) => {
+          URL.revokeObjectURL(objectUrl);
           if (blob) resolve(blob);
-          else reject(new Error('Canvas toBlob failed'));
+          else resolve(rawBlob);
         }, 'image/png', 0.95);
       } catch (err) {
-        reject(err);
+        URL.revokeObjectURL(objectUrl);
+        resolve(rawBlob);
       }
     };
     img.onerror = () => {
-      fetch(imageUrl)
-        .then(r => r.blob())
-        .then(resolve)
-        .catch(reject);
+      URL.revokeObjectURL(objectUrl);
+      resolve(rawBlob);
     };
-    img.src = imageUrl;
+    img.src = objectUrl;
   });
 }
 
+
 // ─── Batch Processing Options Data ───
 const batchOptions = [
+  {
+    id: 'virtual-tryon',
+    title: 'Virtual Try-on',
+    desc: 'Show garment on an AI fashion model',
+    img: '/images/example-tryon.png',
+    checked: true,
+    emoji: '👗',
+    mode: 'try_on'
+  },
   {
     id: 'white-bg',
     title: 'White Background',
     desc: 'Amazon, Flipkart, Meesho compliance',
     img: '/images/example-whitebg.png',
-    checked: true,
+    checked: false,
     emoji: '🤍',
     mode: 'white_background'
   },
@@ -1008,15 +1251,6 @@ const batchOptions = [
     checked: false,
     emoji: '🏡',
     mode: 'lifestyle'
-  },
-  {
-    id: 'virtual-tryon',
-    title: 'Virtual Try-on',
-    desc: 'Show garment on an AI fashion model',
-    img: '/images/example-tryon.png',
-    checked: false,
-    emoji: '👗',
-    mode: 'try_on'
   },
   {
     id: 'ghost-mannequin',
@@ -1058,14 +1292,18 @@ const batchOptions = [
 
 let uploadedFiles = [];
 let selectedAvatar = null;
+let editingImageIndex = null;
+let isBatchEditingMode = false;
 
 function renderBatchWorkspace() {
   const isVirtualTryon = batchOptions.find(o => o.id === 'virtual-tryon')?.checked;
-  const allHaveModels = uploadedFiles.every(f => f.model);
-  const processDisabled = isVirtualTryon && !allHaveModels;
+  const apparelFiles = uploadedFiles.filter(f => f.is_apparel !== false);
+  const allApparelHaveModels = apparelFiles.length === 0 || apparelFiles.every(f => f.model);
+  const processDisabled = isVirtualTryon && apparelFiles.length > 0 && !allApparelHaveModels;
 
   const selectedImagesCount = uploadedFiles.filter(f => f.selected).length;
   const allSelected = uploadedFiles.length > 0 && selectedImagesCount === uploadedFiles.length;
+  const nonApparelCount = uploadedFiles.filter(f => f.is_apparel === false).length;
 
   const activePlatformId = appState.batchState.targetPlatform || 'flipkart';
   const currentPlatform = marketplacePlatforms.find(p => p.id === activePlatformId) || marketplacePlatforms[0];
@@ -1074,16 +1312,66 @@ function renderBatchWorkspace() {
   const activeResolution = appState.batchState.targetResolution || getDefaultResolutionForUser();
 
   const thumbs = uploadedFiles.map((file, i) => {
-    let badgeText = '';
-    if (file.model) {
-      badgeText = file.model.includes('male') ? 'M' : 'F';
-      if (file.model.includes('female')) badgeText = 'F';
-    }
+    const isApparel = file.is_apparel !== false;
+    const isKids = file.detected_gender === 'kids' || file.detected_gender === 'kids_female' || file.detected_gender === 'kids_male' || (file.detected_gender || '').includes('kids') || (file.detected_gender || '').includes('child');
+    const isMale = !isKids && (file.detected_gender === 'male' || (file.model && file.model.includes('male') && !file.model.includes('kids')));
+    const isUnisex = file.detected_gender === 'unisex';
+
+    const genderIcon = isKids ? '🧒' : (isMale ? '👔' : (isUnisex ? '✨' : '👗'));
+    const genderBg = isKids ? '#059669' : (isMale ? '#2563eb' : (isUnisex ? '#7c3aed' : '#db2777'));
+
+    const garmentLabel = file.display_name || (isKids ? "Kids' Apparel" : (isMale ? "Men's Apparel" : (isUnisex ? "Unisex Apparel" : "Women's Apparel")));
+
+    const assignedModelObj = onModelAvatars.find(a => a.id === file.model);
+    const modelIcon = assignedModelObj ? ((assignedModelObj.gender || '').includes('Kids') ? '🧒' : ((assignedModelObj.gender || '').includes('Male') ? '👔' : '👗')) : (isKids ? '🧒' : (isMale ? '👔' : '👗'));
+    const modelLabel = assignedModelObj ? `${modelIcon} ${assignedModelObj.name}` : (isKids ? "🧒 Maya" : (isMale ? "👔 Alex" : "👗 Priya"));
+
     return `
     <div class="batch-thumb" data-index="${i}">
       <input type="checkbox" class="batch-thumb__checkbox" data-index="${i}" ${file.selected ? 'checked' : ''} />
       <img src="${file.url}" alt="${file.name}" />
-      ${file.model ? `<span class="batch-thumb__model-badge" title="Model Assigned">${badgeText}</span>` : ''}
+      
+      <!-- Unified Smart Apparel & Model Tag (Non-overlapping) -->
+      <div class="batch-thumb__smart-tag" style="position:absolute; top:8px; left:32px; right:32px; display:flex; justify-content:space-between; align-items:center; z-index:8; pointer-events:auto;">
+        ${!isApparel ? `
+          <span class="batch-thumb__pill batch-thumb__pill--warning" data-index="${i}" title="Non-clothing detected. Click to edit." style="background:#d97706; color:#ffffff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.4); display:flex; align-items:center; gap:3px; cursor:pointer;">
+            <span>⚠️</span> ${escapeHtml(file.display_name || file.garment_type || 'Non-Apparel')}
+            <span style="font-size:9px; opacity:0.85; margin-left:2px;">✏️</span>
+          </span>
+        ` : `
+          <span class="batch-thumb__pill batch-thumb__pill--apparel" data-index="${i}" title="Click to edit gender & category" style="background:${genderBg}; color:#ffffff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.4); text-transform:capitalize; display:flex; align-items:center; gap:3px; cursor:pointer;">
+            ${genderIcon} ${escapeHtml(garmentLabel)}
+            <span style="font-size:9px; opacity:0.85; margin-left:2px;">✏️</span>
+          </span>
+        `}
+
+        ${isApparel ? (file.model ? `
+          <span class="batch-thumb__model-badge" data-index="${i}" title="Click to Switch Model" style="position:static; pointer-events:auto; cursor:pointer; font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; background:rgba(15,23,42,0.85); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); box-shadow:0 2px 6px rgba(0,0,0,0.3);">
+            ${modelLabel} ▾
+          </span>
+        ` : `
+          <span class="batch-thumb__model-badge batch-thumb__model-badge--empty" data-index="${i}" title="Assign Model" style="position:static; pointer-events:auto; cursor:pointer; font-size:10px; font-weight:700; padding:2px 6px; border-radius:6px; background:rgba(15,23,42,0.65); color:#94a3b8; border:1px dashed rgba(148,163,184,0.4);">
+            + Model
+          </span>
+        `) : `
+          <span style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:6px; background:rgba(15,23,42,0.8); color:#f59e0b; border:1px solid rgba(245,158,11,0.3);">
+            Product Shot
+          </span>
+        `}
+      </div>
+
+      ${!isApparel ? `
+        <!-- Inline Non-Apparel Action Bar -->
+        <div class="batch-thumb__nonapparel-bar" style="position:absolute; bottom:38px; left:8px; right:8px; background:rgba(15,23,42,0.88); backdrop-filter:blur(6px); border:1px solid rgba(245,158,11,0.3); border-radius:6px; padding:5px 6px; display:flex; justify-content:space-between; align-items:center; z-index:9; pointer-events:auto;">
+          <button class="btn-convert-product-card" data-index="${i}" title="Use clean product photo instead of try-on model" style="background:#f59e0b; color:#0f172a; border:none; border-radius:4px; padding:2px 6px; font-size:9px; font-weight:800; cursor:pointer;">
+            🤍 Product Photo
+          </button>
+          <button class="btn-remove-thumb-card" data-index="${i}" title="Remove accidental upload" style="background:transparent; color:#ef4444; border:1px solid rgba(239,68,68,0.4); border-radius:4px; padding:2px 6px; font-size:9px; font-weight:700; cursor:pointer;">
+            🗑️ Remove
+          </button>
+        </div>
+      ` : ''}
+
       <div class="batch-thumb__overlay">
         <span class="batch-thumb__name">${file.name}</span>
         <span class="batch-thumb__size">${file.size}</span>
@@ -1112,7 +1400,18 @@ function renderBatchWorkspace() {
   const checkedOptions = batchOptions.filter(o => o.checked);
   const paidModes = checkedOptions.filter(o => o.mode !== 'background_removal' && o.mode !== 'white_background');
   const freeModes = checkedOptions.filter(o => o.mode === 'background_removal' || o.mode === 'white_background');
-  const requiredCredits = uploadedFiles.length * paidModes.length * 10;
+  
+  let requiredCredits = 0;
+  uploadedFiles.forEach(f => {
+    paidModes.forEach(m => {
+      if (f.is_apparel === false && m.mode === 'try_on') {
+        // Auto-converted to free white_background, 0 credits
+        return;
+      }
+      requiredCredits += 10;
+    });
+  });
+
   const userBalance = (appState.user && appState.user.profile) ? (appState.user.profile.credit_balance ?? 0) : 0;
   const isInsufficientCredits = userBalance < requiredCredits;
 
@@ -1120,12 +1419,28 @@ function renderBatchWorkspace() {
     <input type="file" id="file-input-hidden" multiple accept="image/*,image/heic" style="display:none" />
     <div class="batch-workspace">
       <div class="batch-left">
+        ${nonApparelCount > 0 ? `
+          <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:8px 12px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:12px; color:#92400e; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:16px;">⚠️</span>
+              <span><strong>${nonApparelCount} non-apparel item${nonApparelCount !== 1 ? 's' : ''} detected</strong> (accessories/shoes). Fashion Try-On models won't waste credits on them.</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button id="btn-batch-convert-nonapparel" style="background:#d97706; color:#ffffff; border:none; border-radius:6px; padding:4px 10px; font-size:11px; font-weight:700; cursor:pointer;">🤍 Use as Product Photos</button>
+              <button id="btn-batch-remove-nonapparel" style="background:#ffffff; color:#b45309; border:1px solid #d97706; border-radius:6px; padding:4px 10px; font-size:11px; font-weight:700; cursor:pointer;">🗑️ Remove (${nonApparelCount})</button>
+            </div>
+          </div>
+        ` : ''}
+
         <div class="batch-toolbar">
           <div class="batch-toolbar__left" style="display:flex; align-items:center; gap: 8px;">
             <input type="checkbox" id="check-select-all" ${allSelected ? 'checked' : ''} style="cursor:pointer;" />
             <span class="batch-toolbar__count">${uploadedFiles.length} image${uploadedFiles.length !== 1 ? 's' : ''}</span>
           </div>
           <div class="batch-toolbar__right" style="display:flex; gap: 8px;">
+            <button class="batch-toolbar__btn" id="btn-batch-edit-pill" ${selectedImagesCount === 0 ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>
+              ✏️ Edit Tag (${selectedImagesCount})
+            </button>
             <button class="batch-toolbar__btn" id="btn-assign-model" ${selectedImagesCount === 0 ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>
               🧍 Assign Model
             </button>
@@ -1169,7 +1484,7 @@ function renderBatchWorkspace() {
               </span>
               <span class="batch-cost-value">
                 <strong>${requiredCredits}</strong> credits
-                <span class="batch-cost-detail">(${uploadedFiles.length} images × ${paidModes.length} AI mode${paidModes.length !== 1 ? 's' : ''} × 10 cr)</span>
+                <span class="batch-cost-detail">(${uploadedFiles.length} images · ${paidModes.length} AI mode${paidModes.length !== 1 ? 's' : ''})</span>
               </span>
             </div>
 
@@ -1213,7 +1528,7 @@ function renderBatchWorkspace() {
           </div>
           ` : ''}
 
-          <button class="process-btn" id="btn-process-batch" ${(processDisabled || isInsufficientCredits) ? `disabled title="${isInsufficientCredits ? 'Insufficient credits. Please top up or reduce options.' : 'Please assign a model to all images for Virtual Try-on'}"` : ''}>
+          <button class="process-btn" id="btn-process-batch" ${(processDisabled || isInsufficientCredits) ? `disabled title="${isInsufficientCredits ? 'Insufficient credits. Please top up or reduce options.' : 'Please assign a model to all apparel images for Virtual Try-on'}"` : ''}>
             ${isInsufficientCredits ? '⚠️ Insufficient Credits' : `✨ Process ${uploadedFiles.length} Image${uploadedFiles.length !== 1 ? 's' : ''} (${requiredCredits} cr)`}
           </button>
         </div>
@@ -1232,25 +1547,205 @@ function renderBatchWorkspace() {
 
     <!-- Avatar Selection Modal -->
     <div class="avatar-modal" id="avatar-modal">
-      <div class="avatar-modal__content">
+      <div class="avatar-modal__content" style="max-width: 580px;">
         <div class="avatar-modal__header">
-          <h3 class="avatar-modal__title">Assign Model</h3>
+          <div>
+            <h3 class="avatar-modal__title">Assign Model</h3>
+            <p style="font-size: 12px; color: var(--color-gray-500); margin-top: 2px;">Select the fashion model to wear this apparel</p>
+          </div>
           <button class="avatar-modal__close" id="avatar-modal-close">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
+
+        <div class="avatar-filter-bar" style="display: flex; gap: 8px; margin: 10px 0 14px 0; padding-bottom: 8px; border-bottom: 1px solid #f1f5f9;">
+          <button type="button" class="avatar-filter-tab active" data-filter="all" style="padding: 5px 12px; border-radius: 100px; font-size: 12px; font-weight: 700; border: 1px solid #0f172a; background: #0f172a; color: #ffffff; cursor: pointer;">✨ All (${onModelAvatars.length})</button>
+          <button type="button" class="avatar-filter-tab" data-filter="female" style="padding: 5px 12px; border-radius: 100px; font-size: 12px; font-weight: 700; border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; cursor: pointer;">👗 Women</button>
+          <button type="button" class="avatar-filter-tab" data-filter="male" style="padding: 5px 12px; border-radius: 100px; font-size: 12px; font-weight: 700; border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; cursor: pointer;">👔 Men</button>
+          <button type="button" class="avatar-filter-tab" data-filter="kids" style="padding: 5px 12px; border-radius: 100px; font-size: 12px; font-weight: 700; border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; cursor: pointer;">🧒 Kids</button>
+        </div>
+
         <div class="avatar-modal__grid">
-          <div class="avatar-card" data-avatar="/images/avatar-male.png">
-            <img src="/images/avatar-male.png" alt="Male Model" />
-            <span>Male Model</span>
-          </div>
-          <div class="avatar-card" data-avatar="/images/avatar-female.png">
-            <img src="/images/avatar-female.png" alt="Female Model" />
-            <span>Female Model</span>
-          </div>
+          ${onModelAvatars.map(a => {
+            const rawG = (a.gender || a.tag || '').toLowerCase();
+            const gCategory = (rawG.includes('kids') || (a.category || '').toLowerCase().includes('kid') || a.name === 'Maya' || a.name === 'Aarav') ? 'kids' : (rawG.includes('male') && !rawG.includes('female') ? 'male' : 'female');
+            return `
+            <div class="avatar-card" data-avatar="${a.id}" data-category="${gCategory}">
+              <div style="position: relative;">
+                <img src="${a.id}" alt="${a.name}" />
+                <span class="avatar-card__selected-check" style="position: absolute; top: 6px; right: 6px; background: #10b981; color: #ffffff; border-radius: 50%; width: 22px; height: 22px; display: none; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.25);">✓</span>
+              </div>
+              <div style="margin-top: 6px;">
+                <span style="display: block; font-size: 13px; font-weight: 700; color: var(--color-gray-900);">${a.name} - ${a.gender || a.tag}</span>
+              </div>
+            </div>
+          `;
+          }).join('')}
         </div>
         <div class="avatar-modal__footer">
-          <button class="avatar-modal__apply" id="btn-apply-avatar" disabled>Assign Model</button>
+          <button class="avatar-modal__apply" id="btn-apply-avatar" disabled style="background: #10b981; border: none; font-weight: 700;">Assign Model</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─── Modern SaaS Classification & Taxonomy Edit Modal ─── -->
+    <div class="taxo-modal-overlay" id="classification-edit-modal">
+      <div class="taxo-modal-card">
+        <!-- Header -->
+        <div class="taxo-modal-header">
+          <div class="taxo-modal-header-left">
+            <div class="taxo-modal-icon-badge">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              </svg>
+            </div>
+            <div>
+              <h3 class="taxo-modal-title" id="classification-modal-title">Taxonomy & AI Routing</h3>
+              <p class="taxo-modal-subtitle">Configure garment attributes, target demographic & model assignment</p>
+            </div>
+          </div>
+          <button class="taxo-modal-close-btn" id="classification-modal-close" title="Close modal">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div class="taxo-modal-body">
+          <!-- Active Preview Context Strip -->
+          <div class="taxo-context-strip" id="taxo-context-strip">
+            <img class="taxo-context-thumb" id="taxo-context-thumb" src="/images/card-onmodel.png" alt="Context" />
+            <div class="taxo-context-info">
+              <div class="taxo-context-name" id="taxo-context-name">Product Image</div>
+              <div class="taxo-context-chip" id="taxo-context-chip">✨ AI Auto-Detected</div>
+            </div>
+          </div>
+
+          <!-- Product Type Selector (Apparel vs Object) -->
+          <div>
+            <label class="taxo-section-label">Product Classification Type</label>
+            <div class="taxo-type-cards">
+              <label class="taxo-type-card selected" data-type="apparel">
+                <input type="radio" name="modal-is-apparel" value="true" checked />
+                <div class="taxo-type-icon">👕</div>
+                <div class="taxo-type-content">
+                  <div class="taxo-type-title">Wearable Apparel</div>
+                  <div class="taxo-type-desc">Dresses virtual try-on models and generates lifestyle fashion shoots.</div>
+                </div>
+              </label>
+              <label class="taxo-type-card" data-type="product">
+                <input type="radio" name="modal-is-apparel" value="false" />
+                <div class="taxo-type-icon">📦</div>
+                <div class="taxo-type-content">
+                  <div class="taxo-type-title">Product / Object</div>
+                  <div class="taxo-type-desc">Studio still-life, ghost mannequin, flat-lay, and accessories.</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Demographic / Gender -->
+          <div id="modal-gender-section">
+            <label class="taxo-section-label">Target Demographic</label>
+            <div class="taxo-gender-grid">
+              <label class="taxo-gender-pill selected" data-gender="female">
+                <input type="radio" name="modal-gender" value="female" checked />
+                <span>👗 Women</span>
+              </label>
+              <label class="taxo-gender-pill" data-gender="male">
+                <input type="radio" name="modal-gender" value="male" />
+                <span>👔 Men</span>
+              </label>
+              <label class="taxo-gender-pill" data-gender="kids">
+                <input type="radio" name="modal-gender" value="kids" />
+                <span>🧒 Kids</span>
+              </label>
+              <label class="taxo-gender-pill" data-gender="unisex">
+                <input type="radio" name="modal-gender" value="unisex" />
+                <span>✨ Unisex</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Taxonomy / Category -->
+          <div class="taxo-field-box">
+            <label class="taxo-section-label">Garment / Product Taxonomy</label>
+            <select class="taxo-select" id="modal-category-select">
+              <optgroup label="Indian Ethnic Wear">
+                <option value="saree">Saree</option>
+                <option value="kurta_set">Kurta / Kurti Set</option>
+                <option value="lehenga">Lehenga Choli</option>
+                <option value="ethnic_bottom">Ethnic Bottom / Dhoti / Dupatta</option>
+              </optgroup>
+              <optgroup label="Western & Casual Apparel">
+                <option value="t_shirt">T-Shirt / Tee</option>
+                <option value="shirt">Casual / Formal Shirt</option>
+                <option value="dress">Dress / Gown</option>
+                <option value="western_top">Top / Crop Top / Blouse</option>
+                <option value="jeans">Jeans / Denim</option>
+                <option value="trousers">Trousers / Chinos / Pants</option>
+                <option value="suit">Suit / Blazer / Tuxedo</option>
+                <option value="hoodie">Hoodie / Sweatshirt</option>
+                <option value="jacket">Jacket / Coat / Outerwear</option>
+                <option value="activewear">Activewear / Tracksuit</option>
+              </optgroup>
+              <optgroup label="Footwear & Accessories">
+                <option value="shoes">Shoes / Footwear / Sneakers</option>
+                <option value="bag">Bag / Backpack / Handbag</option>
+                <option value="watch">Wrist Watch / Timepiece</option>
+                <option value="jewelry">Jewelry / Necklace / Rings</option>
+                <option value="electronics">Electronics / Gadget</option>
+                <option value="other">Other Product Object</option>
+              </optgroup>
+            </select>
+            <span class="taxo-field-hint">Guides AI drape physics, necklines, and background lighting.</span>
+          </div>
+
+          <!-- Display Name -->
+          <div class="taxo-field-box">
+            <label class="taxo-section-label">Catalog Display Tag</label>
+            <input type="text" class="taxo-input" id="modal-display-name" placeholder="e.g. Pure Silk Banarasi Saree or Cotton Oversized Tee" />
+          </div>
+
+          <!-- Model Assignment Section -->
+          <div id="modal-model-section">
+            <label class="taxo-section-label">Assigned AI Fashion Model</label>
+            <div class="taxo-models-container" id="taxo-models-container">
+              ${onModelAvatars.map(a => `
+                <label class="taxo-model-card" data-model-id="${a.id}">
+                  <input type="radio" name="modal-assigned-model" value="${a.id}" />
+                  <img class="taxo-model-avatar" src="${a.id}" alt="${a.name}" />
+                  <div class="taxo-model-info">
+                    <span class="taxo-model-name">${a.name}</span>
+                    <span class="taxo-model-tag">${a.gender || a.tag}</span>
+                  </div>
+                </label>
+              `).join('')}
+              <label class="taxo-model-card" data-model-id="">
+                <input type="radio" name="modal-assigned-model" value="" />
+                <div class="taxo-model-avatar" style="background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:14px;">📦</div>
+                <div class="taxo-model-info">
+                  <span class="taxo-model-name">None</span>
+                  <span class="taxo-model-tag">Product Shot</span>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="taxo-modal-footer">
+          <button class="taxo-btn-ghost" id="btn-modal-apply-all">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            Apply to All (${uploadedFiles.length})
+          </button>
+          <div style="display:flex; gap:10px;">
+            <button class="taxo-btn-ghost" id="btn-modal-cancel">Cancel</button>
+            <button class="taxo-btn-primary" id="btn-modal-apply-single">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Apply Changes
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1632,19 +2127,32 @@ function initAssetsEvents() {
     // 4. Download button
     const downloadBtn = e.target.closest('.btn-asset-download');
     if (downloadBtn) {
+      e.stopPropagation();
       const url = downloadBtn.getAttribute('data-url');
       const filename = downloadBtn.getAttribute('data-filename') || 'asset.png';
 
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      downloadBtn.disabled = true;
+      const originalText = downloadBtn.textContent;
+      downloadBtn.textContent = '...';
+
+      downloadFileFromUrl(url, filename).finally(() => {
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = originalText;
+      });
       return;
     }
 
-    // 5. Preview button (Eye icon)
+    // 5. Catalog Copy button
+    const catalogBtn = e.target.closest('.btn-asset-catalog');
+    if (catalogBtn) {
+      e.stopPropagation();
+      const jobId = catalogBtn.getAttribute('data-job-id');
+      const imageUrl = catalogBtn.getAttribute('data-url');
+      openCatalogModal(jobId, imageUrl);
+      return;
+    }
+
+    // 6. Preview button (Eye icon)
     const previewBtn = e.target.closest('.btn-asset-preview');
     if (previewBtn) {
       e.stopPropagation();
@@ -1659,7 +2167,7 @@ function initAssetsEvents() {
       return;
     }
 
-    // 6. Modal Close
+    // 7. Modal Close
     const modalCloseBtn = e.target.closest('#modal-close');
     const isModalBg = e.target.id === 'image-modal';
     if (modalCloseBtn || isModalBg) {
@@ -1670,6 +2178,210 @@ function initAssetsEvents() {
       }
       return;
     }
+  });
+}
+
+// ─── E-Commerce Catalog Sheet Modal ───
+async function openCatalogModal(jobId, imageUrl) {
+  let existingModal = document.getElementById('catalog-modal');
+  if (!existingModal) {
+    existingModal = document.createElement('div');
+    existingModal.id = 'catalog-modal';
+    existingModal.className = 'modal-backdrop';
+    document.body.appendChild(existingModal);
+  }
+
+  existingModal.innerHTML = `
+    <div class="modal-content" style="max-width: 920px; width: 95%; max-height: 90vh; overflow-y: auto; background: #ffffff; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); padding: 0; display: flex; flex-direction: column;">
+      <!-- Header -->
+      <div style="display:flex; align-items:center; justify-content:space-between; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; border-top-left-radius: 16px; border-top-right-radius: 16px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg, #059669, #10b981); color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px;">📝</div>
+          <div>
+            <h2 style="font-size: 18px; font-weight: 800; color: #0f172a; margin: 0;">AI E-Commerce Catalog Details</h2>
+            <p style="font-size: 13px; color: #64748b; margin: 2px 0 0 0;">Amazon, Myntra, Flipkart, Meesho & Shopify Ready Copywriting</p>
+          </div>
+        </div>
+        <button id="btn-close-catalog-modal" style="background:transparent; border:none; font-size:22px; cursor:pointer; color:#64748b; padding:4px 8px; border-radius:8px;">✕</button>
+      </div>
+
+      <!-- Content Area (Loading initially) -->
+      <div id="catalog-modal-body" style="padding: 24px; display:flex; align-items:center; justify-content:center; min-height:360px;">
+        <div style="text-align:center;">
+          <div class="cs-spinner cs-spinner--lg" style="margin: 0 auto 16px auto;"></div>
+          <p style="font-weight:700; color:#0f172a; margin:0 0 4px 0;">Analyzing apparel with Vision AI...</p>
+          <p style="font-size:13px; color:#64748b; margin:0;">Generating SEO title, 5 marketplace bullets, fabric care & attributes</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  existingModal.classList.add('active');
+  existingModal.classList.add('open');
+
+  document.getElementById('btn-close-catalog-modal')?.addEventListener('click', () => {
+    existingModal.classList.remove('active');
+    existingModal.classList.remove('open');
+  });
+
+  existingModal.addEventListener('click', (e) => {
+    if (e.target === existingModal) {
+      existingModal.classList.remove('active');
+      existingModal.classList.remove('open');
+    }
+  });
+
+  // Fetch or Generate Catalog Copy
+  try {
+    let res = null;
+    if (typeof batchDetailData !== 'undefined' && batchDetailData && batchDetailData.jobs) {
+      const existingJob = batchDetailData.jobs.find(j => j.id === jobId);
+      if (existingJob && existingJob.catalog_data && Object.keys(existingJob.catalog_data).length > 0) {
+        res = existingJob.catalog_data;
+      }
+    }
+    if (!res) {
+      res = await apiFetch('/uploads/generate-catalog', {
+        method: 'POST',
+        body: JSON.stringify({ job_id: jobId, image_url: imageUrl })
+      });
+    }
+
+    renderCatalogDataInModal(res, imageUrl, jobId);
+  } catch (err) {
+    const body = document.getElementById('catalog-modal-body');
+    if (body) {
+      body.innerHTML = `
+        <div style="text-align:center; color:#ef4444;">
+          <p style="font-weight:700; margin-bottom:8px;">Failed to generate catalog copywriting</p>
+          <p style="font-size:13px; color:#64748b;">${err.message}</p>
+        </div>
+      `;
+    }
+  }
+}
+
+function renderCatalogDataInModal(cat, imageUrl, jobId) {
+  const body = document.getElementById('catalog-modal-body');
+  if (!body) return;
+
+  const title = cat.title || 'Product Title';
+  const desc = cat.short_description || '';
+  const bullets = cat.bullets || [];
+  const attrs = cat.attributes || {};
+  const keywords = cat.search_keywords || [];
+
+  const bulletsHtml = bullets.map(b => `
+    <li style="margin-bottom:8px; font-size:13px; line-height:1.5; color:#334155;">
+      ${b}
+    </li>
+  `).join('');
+
+  const attrsHtml = Object.entries(attrs).map(([k, v]) => `
+    <div style="background:#f1f5f9; padding:8px 12px; border-radius:8px;">
+      <span style="font-size:11px; text-transform:uppercase; font-weight:700; color:#64748b; display:block;">${k.replace(/_/g, ' ')}</span>
+      <span style="font-size:13px; font-weight:700; color:#0f172a;">${v}</span>
+    </div>
+  `).join('');
+
+  const keywordsHtml = keywords.map(kw => `
+    <span style="background:#e0e7ff; color:#3730a3; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px;">${kw}</span>
+  `).join(' ');
+
+  body.innerHTML = `
+    <div style="display:grid; grid-template-columns: 280px 1fr; gap: 24px; width: 100%;">
+      <!-- Left: Image Preview & Actions -->
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="width:100%; border-radius:12px; overflow:hidden; border:1px solid #e2e8f0; background:#f8fafc; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+          <img src="${imageUrl}" alt="Product" style="width:100%; height:auto; display:block; object-fit:contain;" />
+        </div>
+        <button id="btn-download-cat-csv" style="width:100%; padding:10px 14px; background:#0f172a; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+          📥 Download Amazon CSV Sheet
+        </button>
+      </div>
+
+      <!-- Right: Structured Catalog Specs -->
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <!-- Title Box -->
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-size:12px; font-weight:800; color:#059669; text-transform:uppercase; letter-spacing:0.5px;">Marketplace SEO Title</span>
+            <button class="btn-copy-field" data-copy="${title.replace(/"/g, '&quot;')}" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; font-size:11px; font-weight:700; color:#334155; padding:3px 8px; cursor:pointer;">📋 Copy Title</button>
+          </div>
+          <p style="font-size:14px; font-weight:700; color:#0f172a; line-height:1.4; margin:0;">${title}</p>
+        </div>
+
+        <!-- 5 Bullet Points -->
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:12px; font-weight:800; color:#6366f1; text-transform:uppercase; letter-spacing:0.5px;">5 Key Feature Bullets (Amazon/Myntra)</span>
+            <button class="btn-copy-field" data-copy="${bullets.join('\n').replace(/"/g, '&quot;')}" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; font-size:11px; font-weight:700; color:#334155; padding:3px 8px; cursor:pointer;">📋 Copy All Bullets</button>
+          </div>
+          <ul style="margin:0; padding-left:18px;">
+            ${bulletsHtml}
+          </ul>
+        </div>
+
+        <!-- Description -->
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-size:12px; font-weight:800; color:#334155; text-transform:uppercase; letter-spacing:0.5px;">Product Description</span>
+            <button class="btn-copy-field" data-copy="${desc.replace(/"/g, '&quot;')}" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; font-size:11px; font-weight:700; color:#334155; padding:3px 8px; cursor:pointer;">📋 Copy Description</button>
+          </div>
+          <p style="font-size:13px; color:#475569; line-height:1.5; margin:0;">${desc}</p>
+        </div>
+
+        <!-- Attributes Grid -->
+        <div>
+          <span style="font-size:12px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:8px;">Product Specifications</span>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
+            ${attrsHtml}
+          </div>
+        </div>
+
+        <!-- Search Keywords -->
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-size:12px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Search Keywords</span>
+            <button class="btn-copy-field" data-copy="${keywords.join(', ')}" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; font-size:11px; font-weight:700; color:#334155; padding:3px 8px; cursor:pointer;">📋 Copy Keywords</button>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            ${keywordsHtml}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Copy Buttons Interactivity
+  body.querySelectorAll('.btn-copy-field').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const text = btn.getAttribute('data-copy');
+      navigator.clipboard.writeText(text);
+      const orig = btn.innerText;
+      btn.innerText = '✓ Copied!';
+      btn.style.borderColor = '#10b981';
+      btn.style.color = '#059669';
+      setTimeout(() => {
+        btn.innerText = orig;
+        btn.style.borderColor = '#cbd5e1';
+        btn.style.color = '#334155';
+      }, 2000);
+    });
+  });
+
+  // Download Single CSV
+  document.getElementById('btn-download-cat-csv')?.addEventListener('click', () => {
+    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(
+      `Product Title,Image URL,Category,Fabric,Color,Bullet 1,Bullet 2,Bullet 3,Bullet 4,Bullet 5,Description\n` +
+      `"${title.replace(/"/g, '""')}","${imageUrl}","${attrs.category || ''}","${attrs.fabric || ''}","${attrs.color || ''}","${(bullets[0] || '').replace(/"/g, '""')}","${(bullets[1] || '').replace(/"/g, '""')}","${(bullets[2] || '').replace(/"/g, '""')}","${(bullets[3] || '').replace(/"/g, '""')}","${(bullets[4] || '').replace(/"/g, '""')}","${desc.replace(/"/g, '""')}"`
+    );
+    const link = document.createElement("a");
+    link.setAttribute("href", csvContent);
+    link.setAttribute("download", `cropstudio_catalog_${jobId || 'item'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   });
 }
 
@@ -2812,11 +3524,16 @@ function renderBatchProgress() {
           ` : ''}
         </div>
         ${badgeHtml}
-        <div class="job-card-footer">
+        <div class="job-card-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
           <span class="job-card-filename" title="${filename}">${filename}</span>
-          <button class="job-card-btn btn-download-selected" data-url="${job.result_url}" data-filename="${filename}" ${job.status !== 'completed' ? 'disabled' : ''}>
-            Download
-          </button>
+          <div style="display: flex; gap: 4px; align-items: center;">
+            <button class="job-card-btn btn-view-catalog" data-job-id="${job.id}" data-url="${thumbUrl}" ${job.status !== 'completed' ? 'disabled' : ''} style="background: rgba(16, 185, 129, 0.12); color: #059669; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 700; padding: 4px 8px; font-size: 11px; border-radius: 6px; cursor: pointer; white-space: nowrap;" title="View AI E-Commerce Product Details & Specifications">
+              📝 Catalog
+            </button>
+            <button class="job-card-btn btn-download-selected" data-url="${job.result_url}" data-filename="${filename}" ${job.status !== 'completed' ? 'disabled' : ''}>
+              Download
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -2879,6 +3596,9 @@ function renderBatchProgress() {
             <p>Select target platform presets and resolution tier for single-click formatted downloads.</p>
           </div>
           <div class="smart-export-hub__actions">
+            <button class="export-hub-btn" id="btn-export-catalog-csv" ${completed_jobs === 0 ? 'disabled' : ''} style="background: #059669; color: #ffffff; border: 1px solid #047857;" title="Download Amazon, Flipkart, Myntra & Meesho Product Catalog CSV">
+              📊 Export Catalog CSV
+            </button>
             <button class="export-hub-btn export-hub-btn--bundle" id="btn-export-bundle-zip" ${completed_jobs === 0 ? 'disabled' : ''}>
               📦 Multi-Platform Bundle ZIP
             </button>
@@ -3003,6 +3723,7 @@ let adminPromptsList = [];
 let adminSelectedPromptName = null;
 let adminProvidersList = [];
 let adminPricingsList = [];
+let adminFashionModelsList = [];
 
 // Waitlist admin state
 let adminWaitlistEntries = [];
@@ -3458,6 +4179,109 @@ function renderTabContentHtml() {
           <span style="font-size:12px; color:var(--color-gray-500);">Page ${(currentFilters.offset / currentFilters.limit) + 1}</span>
           <button class="admin-action-btn" id="btn-admin-logs-next" ${adminLogs.length < currentFilters.limit ? 'disabled' : ''}>Next</button>
         </div>
+    `;
+  }
+
+  if (adminActiveTab === 'fashion_models') {
+    return `
+      <div class="admin-card">
+        <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <span class="admin-card-title">👗 AI Fashion Models Management</span>
+            <p style="font-size: 12px; color: var(--color-gray-500); margin: 4px 0 0 0;">
+              Upload models directly to Cloudflare R2 storage. Models sync dynamically to all user try-on & lifestyle pickers.
+            </p>
+          </div>
+          <button id="btn-open-upload-model-modal" class="export-hub-btn" style="background: #10b981; color: #ffffff; border: none; font-size: 13px; padding: 8px 16px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-weight: 700;">
+            + Upload New Fashion Model
+          </button>
+        </div>
+
+        <div style="padding: var(--space-5);">
+          <div class="admin-models-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px;">
+            ${(adminFashionModelsList || []).map(m => {
+              const genderLabel = (m.gender || 'female').toUpperCase();
+              const genderColor = m.gender === 'male' ? '#3b82f6' : (m.gender === 'female' ? '#ec4899' : '#8b5cf6');
+              return `
+                <div class="admin-model-card" style="background: #ffffff; border: 1px solid var(--border-color, #e2e8f0); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04); display: flex; flex-direction: column;">
+                  <div style="position: relative; width: 100%; aspect-ratio: 3/4; background: #f1f5f9; overflow: hidden;">
+                    <img src="${m.image_url}" alt="${m.name}" style="width: 100%; height: 100%; object-fit: cover;" />
+                    <span style="position: absolute; top: 10px; left: 10px; background: ${genderColor}; color: #ffffff; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px;">
+                      ${genderLabel}
+                    </span>
+                    <span style="position: absolute; top: 10px; right: 10px; background: ${m.is_active ? '#10b981' : '#64748b'}; color: #ffffff; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px;">
+                      ${m.is_active ? 'Active' : 'Disabled'}
+                    </span>
+                  </div>
+                  <div style="padding: 14px; display: flex; flex-direction: column; gap: 8px; flex: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <strong style="font-size: 15px; color: var(--color-gray-900); font-weight: 700;">${m.name} - ${m.gender ? m.gender.charAt(0).toUpperCase() + m.gender.slice(1) : 'Model'}</strong>
+                      <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0;">
+                        ${m.category || 'All-Rounder'}
+                      </span>
+                    </div>
+                    <div style="font-size: 11px; color: #94a3b8; font-family: monospace; word-break: break-all; background: #f8fafc; padding: 4px 6px; border-radius: 4px;">
+                      ${m.storage_path}
+                    </div>
+                    <div style="margin-top: auto; padding-top: 10px; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+                      <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                        <input type="checkbox" class="admin-model-toggle" data-model-id="${m.id}" ${m.is_active ? 'checked' : ''} />
+                        <span>${m.is_active ? 'Enabled' : 'Disabled'}</span>
+                      </label>
+                      <button class="btn-delete-fashion-model" data-model-id="${m.id}" data-model-name="${m.name}" style="background: none; border: 1px solid #fee2e2; color: #ef4444; border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 600; cursor: pointer;">
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+          ${(!adminFashionModelsList || adminFashionModelsList.length === 0) ? '<div style="text-align:center; color:var(--color-gray-400); padding:40px;">No models in database.</div>' : ''}
+        </div>
+      </div>
+
+      <!-- Upload Fashion Model Modal -->
+      <div class="avatar-modal" id="upload-model-modal">
+        <div class="avatar-modal__content" style="max-width: 480px;">
+          <div class="avatar-modal__header">
+            <h3 class="avatar-modal__title">Upload New Fashion Model</h3>
+            <button class="avatar-modal__close" id="btn-close-upload-model-modal">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+          <form id="form-upload-fashion-model" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; text-align: left;">
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 700; color: var(--color-gray-700); margin-bottom: 6px;">Model Image (High-Res Reference Photo)</label>
+              <input type="file" id="input-model-file" accept="image/png, image/jpeg, image/webp" required style="width: 100%; padding: 8px; border: 1px dashed var(--color-gray-400); border-radius: 8px; font-size: 12px; background: #fafafa;" />
+              <p style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Portrait or full body photo with clear face and body shape.</p>
+            </div>
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 700; color: var(--color-gray-700); margin-bottom: 6px;">Model Name</label>
+              <input type="text" id="input-model-name" placeholder="e.g. Rohan, Elena, Marcus" required style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--color-gray-300); font-size: 13px;" />
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div>
+                <label style="display: block; font-size: 12px; font-weight: 700; color: var(--color-gray-700); margin-bottom: 6px;">Gender</label>
+                <select id="input-model-gender" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--color-gray-300); font-size: 13px; background: #fff;">
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                  <option value="kids">Kids</option>
+                  <option value="unisex">Unisex</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; font-weight: 700; color: var(--color-gray-700); margin-bottom: 6px;">Category / Style</label>
+                <input type="text" id="input-model-category" placeholder="e.g. Indian Ethnic, Western" value="All-Rounder" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--color-gray-300); font-size: 13px;" />
+              </div>
+            </div>
+            <div style="margin-top: 10px; display: flex; justify-content: flex-end; gap: 8px;">
+              <button type="button" id="btn-cancel-upload-model" style="padding: 10px 16px; border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 8px; font-weight: 600; cursor: pointer;">Cancel</button>
+              <button type="submit" id="btn-submit-upload-model" style="padding: 10px 20px; border: none; background: #10b981; color: #fff; border-radius: 8px; font-weight: 700; cursor: pointer;">Upload to Cloudflare R2</button>
+            </div>
+          </form>
+        </div>
+      </div>
     `;
   }
 
@@ -4796,6 +5620,124 @@ function attachAdminEventListeners() {
       });
     });
   }
+
+  if (adminActiveTab === 'fashion_models') {
+    // 1. Open Upload Modal
+    document.getElementById('btn-open-upload-model-modal')?.addEventListener('click', () => {
+      const modal = document.getElementById('upload-model-modal');
+      if (modal) modal.classList.add('active');
+    });
+
+    // 2. Close Upload Modal
+    document.getElementById('btn-close-upload-model-modal')?.addEventListener('click', () => {
+      const modal = document.getElementById('upload-model-modal');
+      if (modal) modal.classList.remove('active');
+    });
+    document.getElementById('btn-cancel-upload-model')?.addEventListener('click', () => {
+      const modal = document.getElementById('upload-model-modal');
+      if (modal) modal.classList.remove('active');
+    });
+
+    // 3. Form Submit (Multipart upload to /models/admin/upload)
+    const uploadForm = document.getElementById('form-upload-fashion-model');
+    if (uploadForm) {
+      uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fileInput = document.getElementById('input-model-file');
+        const nameInput = document.getElementById('input-model-name');
+        const genderInput = document.getElementById('input-model-gender');
+        const categoryInput = document.getElementById('input-model-category');
+        const submitBtn = document.getElementById('btn-submit-upload-model');
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+          alert('Please select an image file to upload.');
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('name', nameInput.value.trim());
+        formData.append('gender', genderInput.value);
+        formData.append('category', categoryInput.value.trim() || 'All-Rounder');
+
+        submitBtn.disabled = true;
+        const origText = submitBtn.textContent;
+        submitBtn.textContent = 'Uploading to Cloudflare R2...';
+
+        try {
+          const headers = {};
+          if (appState.token) headers['Authorization'] = `Bearer ${appState.token}`;
+          const res = await fetch(`${API_BASE_URL}/models/admin/upload`, {
+            method: 'POST',
+            body: formData,
+            headers
+          });
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.detail || 'Upload failed');
+          }
+
+          alert(`Model '${nameInput.value}' uploaded and saved successfully!`);
+          const modal = document.getElementById('upload-model-modal');
+          if (modal) modal.classList.remove('active');
+
+          await fetchAIFashionModels();
+          await renderAdminDashboard();
+        } catch (err) {
+          console.error('Model upload failed:', err);
+          alert('Model upload error: ' + err.message);
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = origText;
+        }
+      });
+    }
+
+    // 4. Toggle Active Switch
+    document.querySelectorAll('.admin-model-toggle').forEach(chk => {
+      chk.addEventListener('change', async () => {
+        const modelId = chk.getAttribute('data-model-id');
+        const isActive = chk.checked;
+        try {
+          await apiFetch(`/models/admin/${modelId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ is_active: isActive })
+          });
+          await fetchAIFashionModels();
+        } catch (err) {
+          console.error('Failed to toggle model status:', err);
+          alert('Failed to update model status: ' + err.message);
+          chk.checked = !isActive;
+        }
+      });
+    });
+
+    // 5. Delete Model Button
+    document.querySelectorAll('.btn-delete-fashion-model').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const modelId = btn.getAttribute('data-model-id');
+        const modelName = btn.getAttribute('data-model-name');
+        if (!confirm(`Are you sure you want to permanently delete fashion model "${modelName}"? This will remove the file from Cloudflare R2 and database.`)) {
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Deleting...';
+        try {
+          await apiFetch(`/models/admin/${modelId}`, { method: 'DELETE' });
+          alert(`Model '${modelName}' deleted successfully.`);
+          await fetchAIFashionModels();
+          await renderAdminDashboard();
+        } catch (err) {
+          console.error('Failed to delete model:', err);
+          alert('Delete failed: ' + err.message);
+          btn.disabled = false;
+          btn.textContent = '🗑️ Delete';
+        }
+      });
+    });
+  }
 }
 
 async function renderAdminDashboard() {
@@ -4836,6 +5778,8 @@ async function renderAdminDashboard() {
       if (currentFilters.action) queryParams += `&action=${currentFilters.action}`;
       if (currentFilters.resource_type) queryParams += `&resource_type=${currentFilters.resource_type}`;
       adminLogs = await apiFetch(`/admin/audit/${queryParams}`);
+    } else if (adminActiveTab === 'fashion_models') {
+      adminFashionModelsList = await apiFetch('/models/admin/all');
     } else if (adminActiveTab === 'models') {
       adminProvidersList = await apiFetch('/users/admin/providers');
       adminPricingsList = await apiFetch('/users/admin/pricings');
@@ -4863,10 +5807,11 @@ async function renderAdminDashboard() {
         <div class="admin-tabs">
           <button class="admin-tab ${adminActiveTab === 'users' ? 'admin-tab--active' : ''}" data-tab="users">Users & Plans</button>
           <button class="admin-tab ${adminActiveTab === 'plans' ? 'admin-tab--active' : ''}" data-tab="plans">💳 Plans & Pricing</button>
+          <button class="admin-tab ${adminActiveTab === 'fashion_models' ? 'admin-tab--active' : ''}" data-tab="fashion_models">👗 Fashion Models</button>
           <button class="admin-tab ${adminActiveTab === 'revenue' ? 'admin-tab--active' : ''}" data-tab="revenue">💰 Revenue & MRR</button>
           <button class="admin-tab ${adminActiveTab === 'issues' ? 'admin-tab--active' : ''}" data-tab="issues">🛠️ Issue Debugger</button>
           <button class="admin-tab ${adminActiveTab === 'prompts' ? 'admin-tab--active' : ''}" data-tab="prompts">Prompt Templates</button>
-          <button class="admin-tab ${adminActiveTab === 'models' ? 'admin-tab--active' : ''}" data-tab="models">AI Models</button>
+          <button class="admin-tab ${adminActiveTab === 'models' ? 'admin-tab--active' : ''}" data-tab="models">🤖 AI Providers</button>
           <button class="admin-tab ${adminActiveTab === 'spend' ? 'admin-tab--active' : ''}" data-tab="spend">Infrastructure Spend</button>
           <button class="admin-tab ${adminActiveTab === 'audit' ? 'admin-tab--active' : ''}" data-tab="audit">Audit Trail</button>
           <button class="admin-tab ${adminActiveTab === 'waitlist' ? 'admin-tab--active' : ''}" data-tab="waitlist">Waitlist</button>
@@ -5790,6 +6735,117 @@ function openAccountSettingsModal(activeTab = 'profile') {
           </div>
         </form>
       `;
+    } else if (currentTab === 'brand-models') {
+      const defaultFemale = prefs.default_female_model || '';
+      const defaultMale = prefs.default_male_model || '';
+      const defaultKidsFemale = prefs.default_kids_female_model || (prefs.default_kids_model?.includes('female') ? prefs.default_kids_model : '') || '';
+      const defaultKidsMale = prefs.default_kids_male_model || (prefs.default_kids_model?.includes('male') ? prefs.default_kids_model : '') || '';
+
+      const femaleAvatars = onModelAvatars.filter(a => a.gender === 'Female' || (a.gender || '').toLowerCase() === 'female');
+      const maleAvatars = onModelAvatars.filter(a => a.gender === 'Male' || (a.gender || '').toLowerCase() === 'male');
+      const kidsFemaleAvatars = onModelAvatars.filter(a => (a.gender || '').toLowerCase().includes('kids female') || (a.gender || '').toLowerCase().includes('girl') || a.name === 'Maya');
+      const kidsMaleAvatars = onModelAvatars.filter(a => (a.gender || '').toLowerCase().includes('kids male') || (a.gender || '').toLowerCase().includes('boy') || a.name === 'Aarav');
+
+      const femaleOptions = femaleAvatars.map(a => `
+        <option value="${a.id}" ${defaultFemale === a.id ? 'selected' : ''}>${a.name} (${a.category || 'Women\'s Fashion'})</option>
+      `).join('');
+
+      const maleOptions = maleAvatars.map(a => `
+        <option value="${a.id}" ${defaultMale === a.id ? 'selected' : ''}>${a.name} (${a.category || 'Men\'s Fashion'})</option>
+      `).join('');
+
+      const kidsFemaleOptions = kidsFemaleAvatars.map(a => `
+        <option value="${a.id}" ${defaultKidsFemale === a.id ? 'selected' : ''}>${a.name} (${a.category || 'Kids Ethnic & Casual'})</option>
+      `).join('');
+
+      const kidsMaleOptions = kidsMaleAvatars.map(a => `
+        <option value="${a.id}" ${defaultKidsMale === a.id ? 'selected' : ''}>${a.name} (${a.category || 'Kids Casual & Sportswear'})</option>
+      `).join('');
+
+      const femaleImg = femaleAvatars.find(a => a.id === defaultFemale)?.id || (femaleAvatars[0] ? femaleAvatars[0].id : '/images/avatar-female.png');
+      const maleImg = maleAvatars.find(a => a.id === defaultMale)?.id || (maleAvatars[0] ? maleAvatars[0].id : '/images/avatar-male.png');
+      const kidsFemaleImg = kidsFemaleAvatars.find(a => a.id === defaultKidsFemale)?.id || (kidsFemaleAvatars[0] ? kidsFemaleAvatars[0].id : '/images/avatar-kids-female.jpg');
+      const kidsMaleImg = kidsMaleAvatars.find(a => a.id === defaultKidsMale)?.id || (kidsMaleAvatars[0] ? kidsMaleAvatars[0].id : '/images/avatar-kids-male.jpg');
+
+      bodyHtml = `
+        <form class="modal-form-section" id="form-settings-brand-models">
+          <div style="background: linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, rgba(79, 70, 229, 0.08) 100%); border: 1px solid rgba(124, 58, 237, 0.2); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;">
+            <div style="display:flex; align-items:flex-start; gap: 10px;">
+              <span style="font-size: 20px; line-height: 1;">✨</span>
+              <div>
+                <h4 style="font-size: 13px; font-weight: 700; color: #1e1b4b; margin: 0 0 3px 0;">Automated Brand Model Auto-Assignment</h4>
+                <p style="font-size: 11px; color: #4338ca; margin: 0; line-height: 1.45;">
+                  Configure your brand's default virtual models for each demographic. When you bulk upload catalog items, our AI automatically assigns the corresponding model.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <!-- Female Default Model -->
+            <div class="modal-form-group">
+              <label class="modal-form-label">👗 Default Women's Model</label>
+              <div style="display: flex; align-items: center; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px;">
+                <img id="settings-preview-female-img" src="${femaleImg}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid #7c3aed; flex-shrink: 0;" />
+                <div style="flex: 1; min-width: 0;">
+                  <select class="modal-form-select" id="settings-default-female-model" style="background: #ffffff; font-size: 12px; width: 100%;">
+                    <option value="">-- Platform Default (${femaleAvatars[0]?.name || 'Priya'}) --</option>
+                    ${femaleOptions}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Male Default Model -->
+            <div class="modal-form-group">
+              <label class="modal-form-label">👔 Default Men's Model</label>
+              <div style="display: flex; align-items: center; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px;">
+                <img id="settings-preview-male-img" src="${maleImg}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid #3b82f6; flex-shrink: 0;" />
+                <div style="flex: 1; min-width: 0;">
+                  <select class="modal-form-select" id="settings-default-male-model" style="background: #ffffff; font-size: 12px; width: 100%;">
+                    <option value="">-- Platform Default (${maleAvatars[0]?.name || 'Alex'}) --</option>
+                    ${maleOptions}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Kids Girl Default Model -->
+            <div class="modal-form-group">
+              <label class="modal-form-label">👧 Default Kids Girl Model</label>
+              <div style="display: flex; align-items: center; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px;">
+                <img id="settings-preview-kids-female-img" src="${kidsFemaleImg}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid #ec4899; flex-shrink: 0;" />
+                <div style="flex: 1; min-width: 0;">
+                  <select class="modal-form-select" id="settings-default-kids-female-model" style="background: #ffffff; font-size: 12px; width: 100%;">
+                    <option value="">-- Platform Default (${kidsFemaleAvatars[0]?.name || 'Maya'}) --</option>
+                    ${kidsFemaleOptions}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Kids Boy Default Model -->
+            <div class="modal-form-group">
+              <label class="modal-form-label">👦 Default Kids Boy Model</label>
+              <div style="display: flex; align-items: center; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px;">
+                <img id="settings-preview-kids-male-img" src="${kidsMaleImg}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid #10b981; flex-shrink: 0;" />
+                <div style="flex: 1; min-width: 0;">
+                  <select class="modal-form-select" id="settings-default-kids-male-model" style="background: #ffffff; font-size: 12px; width: 100%;">
+                    <option value="">-- Platform Default (${kidsMaleAvatars[0]?.name || 'Aarav'}) --</option>
+                    ${kidsMaleOptions}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="settings-brand-models-msg" style="display:none; font-size:13px; font-weight:600; padding:8px 12px; border-radius:8px; margin-top: 10px;"></div>
+
+          <div class="modal-action-bar">
+            <button type="submit" class="modal-btn-primary" id="btn-save-brand-models">Save Brand Model Preferences</button>
+          </div>
+        </form>
+      `;
     } else if (currentTab === 'security') {
       bodyHtml = `
         <div class="modal-form-section">
@@ -5854,16 +6910,6 @@ function openAccountSettingsModal(activeTab = 'profile') {
             </div>
           </div>
 
-          <div class="modal-form-group">
-            <label class="modal-form-label">Default AI Model Styling Preference</label>
-            <select class="modal-form-select" id="settings-default-model">
-              <option value="indian_female" ${modelStyle === 'indian_female' ? 'selected' : ''}>Indian Female Studio Model (High-Fashion)</option>
-              <option value="indian_male" ${modelStyle === 'indian_male' ? 'selected' : ''}>Indian Male Studio Model (Contemporary)</option>
-              <option value="international_female" ${modelStyle === 'international_female' ? 'selected' : ''}>International / Editorial Female</option>
-              <option value="international_male" ${modelStyle === 'international_male' ? 'selected' : ''}>International / Editorial Male</option>
-            </select>
-          </div>
-
           <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;">
             <div>
               <div style="font-size:13px; font-weight:700; color:#0f172a;">Auto-Enhance Lighting & Shadows</div>
@@ -5908,7 +6954,7 @@ function openAccountSettingsModal(activeTab = 'profile') {
             <div class="app-modal-icon-badge">⚙️</div>
             <div>
               <h2 class="app-modal-title">Account Settings</h2>
-              <div class="app-modal-subtitle">Manage your profile, security, and catalog preferences</div>
+              <div class="app-modal-subtitle">Manage your profile, brand models, security, and catalog preferences</div>
             </div>
           </div>
           <button class="app-modal-close-btn" id="btn-close-settings-modal">&times;</button>
@@ -5918,11 +6964,14 @@ function openAccountSettingsModal(activeTab = 'profile') {
           <button class="app-modal-tab-btn ${currentTab === 'profile' ? 'app-modal-tab-btn--active' : ''}" data-tab="profile">
             👤 Profile & Brand
           </button>
-          <button class="app-modal-tab-btn ${currentTab === 'security' ? 'app-modal-tab-btn--active' : ''}" data-tab="security">
-            🔒 Security & Password
+          <button class="app-modal-tab-btn ${currentTab === 'brand-models' ? 'app-modal-tab-btn--active' : ''}" data-tab="brand-models">
+            👥 Brand Models
           </button>
           <button class="app-modal-tab-btn ${currentTab === 'studio' ? 'app-modal-tab-btn--active' : ''}" data-tab="studio">
             🎨 Studio Defaults
+          </button>
+          <button class="app-modal-tab-btn ${currentTab === 'security' ? 'app-modal-tab-btn--active' : ''}" data-tab="security">
+            🔒 Security
           </button>
           <button class="app-modal-tab-btn ${currentTab === 'danger' ? 'app-modal-tab-btn--active' : ''}" data-tab="danger">
             ⚠️ Danger Zone
@@ -5945,6 +6994,77 @@ function openAccountSettingsModal(activeTab = 'profile') {
     // Close button
     document.getElementById('btn-close-settings-modal')?.addEventListener('click', () => {
       modalContainer.classList.remove('open');
+    });
+
+    // Live avatar preview changes in brand-models tab
+    document.getElementById('settings-default-female-model')?.addEventListener('change', (e) => {
+      const selected = onModelAvatars.find(a => a.id === e.target.value);
+      const img = document.getElementById('settings-preview-female-img');
+      if (img) img.src = selected ? selected.id : '/images/avatar-female.png';
+    });
+    document.getElementById('settings-default-male-model')?.addEventListener('change', (e) => {
+      const selected = onModelAvatars.find(a => a.id === e.target.value);
+      const img = document.getElementById('settings-preview-male-img');
+      if (img) img.src = selected ? selected.id : '/images/avatar-male.png';
+    });
+    document.getElementById('settings-default-kids-female-model')?.addEventListener('change', (e) => {
+      const selected = onModelAvatars.find(a => a.id === e.target.value);
+      const img = document.getElementById('settings-preview-kids-female-img');
+      if (img) img.src = selected ? selected.id : '/images/avatar-kids-female.jpg';
+    });
+    document.getElementById('settings-default-kids-male-model')?.addEventListener('change', (e) => {
+      const selected = onModelAvatars.find(a => a.id === e.target.value);
+      const img = document.getElementById('settings-preview-kids-male-img');
+      if (img) img.src = selected ? selected.id : '/images/avatar-kids-male.jpg';
+    });
+
+    // Brand models form submit
+    document.getElementById('form-settings-brand-models')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const saveBtn = document.getElementById('btn-save-brand-models');
+      const msgEl = document.getElementById('settings-brand-models-msg');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving Preferences...';
+
+      try {
+        const dFemale = document.getElementById('settings-default-female-model')?.value || '';
+        const dMale = document.getElementById('settings-default-male-model')?.value || '';
+        const dKidsFemale = document.getElementById('settings-default-kids-female-model')?.value || '';
+        const dKidsMale = document.getElementById('settings-default-kids-male-model')?.value || '';
+
+        const currentPrefs = (appState.user && appState.user.profile && appState.user.profile.preferences) || {};
+        const updatedPrefs = {
+          ...currentPrefs,
+          default_female_model: dFemale,
+          default_male_model: dMale,
+          default_kids_female_model: dKidsFemale,
+          default_kids_male_model: dKidsMale,
+          default_kids_model: dKidsFemale || dKidsMale || ''
+        };
+
+        const res = await apiFetch('/users/me', {
+          method: 'PATCH',
+          body: JSON.stringify({ preferences: updatedPrefs })
+        });
+
+        if (res && res.profile) {
+          appState.user.profile = res.profile;
+        }
+
+        msgEl.style.display = 'block';
+        msgEl.style.background = '#dcfce7';
+        msgEl.style.color = '#15803d';
+        msgEl.textContent = '✓ Brand Model Preferences saved! New bulk uploads will automatically use these models.';
+        setTimeout(() => { msgEl.style.display = 'none'; }, 3500);
+      } catch (err) {
+        msgEl.style.display = 'block';
+        msgEl.style.background = '#fee2e2';
+        msgEl.style.color = '#b91c1c';
+        msgEl.textContent = `Failed to save brand models: ${err.message}`;
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Brand Model Preferences';
+      }
     });
 
     // Profile form submit
@@ -6043,7 +7163,6 @@ function openAccountSettingsModal(activeTab = 'profile') {
       try {
         const dRatio = document.getElementById('settings-default-ratio').value;
         const dFormat = document.getElementById('settings-default-format').value;
-        const dModel = document.getElementById('settings-default-model').value;
         const aEnhance = document.getElementById('settings-auto-enhance').checked;
 
         const currentPrefs = (appState.user && appState.user.profile && appState.user.profile.preferences) || {};
@@ -6051,7 +7170,6 @@ function openAccountSettingsModal(activeTab = 'profile') {
           ...currentPrefs,
           default_ratio: dRatio,
           default_format: dFormat,
-          model_style: dModel,
           auto_enhance: aEnhance
         };
 
@@ -6847,6 +7965,27 @@ function initBatchEvents() {
       const uploadPromises = Array.from(files).map(async file => {
         try {
           const uploadRes = await apiUpload(file);
+          
+          // Fast Vision AI Pre-Scan (Auto-Gender, Garment Category & Non-Clothing Guardrail)
+          let classification = null;
+          try {
+            const b64 = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.readAsDataURL(file);
+            });
+            classification = await apiFetch('/uploads/classify', {
+              method: 'POST',
+              body: JSON.stringify({ image_base64: b64, mime_type: file.type || 'image/jpeg' })
+            });
+          } catch (clsErr) {
+            console.warn('Garment auto-scan skipped:', clsErr);
+          }
+
+          const isApparel = classification ? (classification.is_apparel !== false && classification.category_type !== 'non_apparel') : true;
+          const detectedGender = classification?.recommended_model_gender || classification?.gender || 'female';
+          const autoModel = isApparel ? getDefaultModelForGender(detectedGender) : null;
+
           completedCount++;
           updateProgress();
           return {
@@ -6854,8 +7993,14 @@ function initBatchEvents() {
             name: uploadRes.original_filename,
             url: uploadRes.url,
             size: `${Math.round(uploadRes.file_size_bytes / 1024)} KB`,
-            selected: false,
-            model: null
+            selected: true,
+            model: autoModel,
+            detected_gender: detectedGender,
+            garment_type: classification?.garment_type || (isApparel ? 'apparel' : 'other'),
+            display_name: classification?.display_name || '',
+            is_apparel: isApparel,
+            category_type: classification?.category_type || (isApparel ? 'apparel' : 'non_apparel'),
+            warning_message: classification?.warning_message || (!isApparel ? 'Non-clothing item detected. Wearable garments are required for AI Model Try-On.' : null)
           };
         } catch (err) {
           completedCount++;
@@ -6893,18 +8038,13 @@ function initBatchEvents() {
       return;
     }
 
-    // Single Download Action
-    const dlSingleBtn = e.target.closest('.btn-download-selected');
-    if (dlSingleBtn) {
-      const url = dlSingleBtn.getAttribute('data-url');
-      const filename = dlSingleBtn.getAttribute('data-filename');
-      if (url) {
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename || 'download.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    // View AI E-Commerce Catalog Sheet Action
+    const viewCatalogBtn = e.target.closest('.btn-view-catalog');
+    if (viewCatalogBtn) {
+      const jobId = viewCatalogBtn.getAttribute('data-job-id');
+      const url = viewCatalogBtn.getAttribute('data-url');
+      if (jobId) {
+        openCatalogModal(jobId, url);
       }
       return;
     }
@@ -6941,21 +8081,16 @@ function initBatchEvents() {
     const dlAllBtn = e.target.closest('#btn-batch-download-all');
     if (dlAllBtn) {
       if (batchDetailData && batchDetailData.jobs) {
-        const completedJobs = batchDetailData.jobs.filter(j => j.status === 'completed');
+        const completedJobs = batchDetailData.jobs.filter(j => j.status === 'completed' && j.result_url);
         if (completedJobs.length === 0) {
           alert('No completed images to download yet.');
           return;
         }
         completedJobs.forEach((job, index) => {
-          setTimeout(() => {
+          setTimeout(async () => {
             const originalFile = uploadedFiles.find(f => f.id === job.image_id);
             const filename = originalFile ? originalFile.name.replace(/\.[^/.]+$/, "") : `image_${index + 1}`;
-            const link = document.createElement('a');
-            link.href = job.result_url;
-            link.download = `${filename}_processed.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            await downloadFileFromUrl(job.result_url, `${filename}_processed.png`);
           }, index * 300);
         });
       }
@@ -6984,12 +8119,322 @@ function initBatchEvents() {
       return;
     }
 
+    // Interactive classification modal opener helper
+    function openClassificationModal(targetIndex, isBatch = false) {
+      editingImageIndex = targetIndex;
+      isBatchEditingMode = isBatch;
+      const modal = document.getElementById('classification-edit-modal');
+      if (!modal) return;
+
+      const file = (targetIndex >= 0 && targetIndex < uploadedFiles.length) ? uploadedFiles[targetIndex] : uploadedFiles[0];
+      const modalTitle = document.getElementById('classification-modal-title');
+      if (modalTitle) {
+        modalTitle.textContent = isBatch 
+          ? `Batch Edit Taxonomy (${uploadedFiles.filter(f => f.selected).length} Images)` 
+          : `Taxonomy & AI Routing`;
+      }
+
+      // Update Context Strip
+      const contextThumb = document.getElementById('taxo-context-thumb');
+      const contextName = document.getElementById('taxo-context-name');
+      const contextChip = document.getElementById('taxo-context-chip');
+      if (contextThumb && file) {
+        contextThumb.src = file.url || file.preview || '/images/card-onmodel.png';
+      }
+      if (contextName && file) {
+        contextName.textContent = isBatch 
+          ? `${uploadedFiles.filter(f => f.selected).length} Images Selected for Batch Edit`
+          : (file.name || file.display_name || 'Product Image');
+      }
+      if (contextChip && file) {
+        const detectedTag = file.display_name || file.garment_type || (file.is_apparel !== false ? 'Wearable Apparel' : 'Product Photo');
+        contextChip.textContent = `✨ AI Classification: ${detectedTag}`;
+      }
+
+      const isApparel = file ? file.is_apparel !== false : true;
+      const isApparelRadio = modal.querySelector(`input[name="modal-is-apparel"][value="${isApparel ? 'true' : 'false'}"]`);
+      if (isApparelRadio) isApparelRadio.checked = true;
+
+      // Highlight selected product type card
+      modal.querySelectorAll('.taxo-type-card').forEach(card => {
+        const rad = card.querySelector('input[type="radio"]');
+        card.classList.toggle('selected', rad && rad.checked);
+      });
+
+      const genderVal = file?.detected_gender || 'female';
+      const genderRadio = modal.querySelector(`input[name="modal-gender"][value="${genderVal}"]`);
+      if (genderRadio) genderRadio.checked = true;
+
+      // Highlight selected gender pill
+      modal.querySelectorAll('.taxo-gender-pill').forEach(pill => {
+        const rad = pill.querySelector('input[type="radio"]');
+        pill.classList.toggle('selected', rad && rad.checked);
+      });
+
+      const catSelect = document.getElementById('modal-category-select');
+      if (catSelect && file?.garment_type) catSelect.value = file.garment_type;
+
+      const nameInput = document.getElementById('modal-display-name');
+      if (nameInput) nameInput.value = file?.display_name || '';
+
+      const currentAssignedModel = (file?.model !== undefined && file?.model !== null) ? file.model : getDefaultModelForGender(genderVal);
+      renderTaxoModelCards(genderVal, currentAssignedModel);
+
+      const genderSection = document.getElementById('modal-gender-section');
+      const modelSection = document.getElementById('modal-model-section');
+      if (genderSection) genderSection.style.display = isApparel ? 'block' : 'none';
+      if (modelSection) modelSection.style.display = isApparel ? 'block' : 'none';
+
+      modal.classList.add('active');
+    }
+
+    // 1-Click Interactive Pill Click (Edit AI Classification / Gender / Model)
+    const pill = e.target.closest('.batch-thumb__pill');
+    if (pill) {
+      e.stopPropagation();
+      const idx = parseInt(pill.getAttribute('data-index'));
+      openClassificationModal(idx, false);
+      return;
+    }
+
+    // Convert non-apparel item to product photo
+    const convertCardBtn = e.target.closest('.btn-convert-product-card');
+    if (convertCardBtn) {
+      e.stopPropagation();
+      const idx = parseInt(convertCardBtn.getAttribute('data-index'));
+      if (uploadedFiles[idx]) {
+        uploadedFiles[idx].is_apparel = false;
+        uploadedFiles[idx].model = null;
+        uploadedFiles[idx].category_type = 'non_apparel';
+        if (!uploadedFiles[idx].display_name) uploadedFiles[idx].display_name = 'Product Photo';
+      }
+      pageContent.innerHTML = renderBatchWorkspace();
+      return;
+    }
+
+    // Remove single thumbnail from card action bar
+    const removeCardBtn = e.target.closest('.btn-remove-thumb-card');
+    if (removeCardBtn) {
+      e.stopPropagation();
+      const idx = parseInt(removeCardBtn.getAttribute('data-index'));
+      uploadedFiles.splice(idx, 1);
+      if (uploadedFiles.length === 0) {
+        appState.batchState.view = 'upload';
+        pageContent.innerHTML = renderBatch();
+      } else {
+        pageContent.innerHTML = renderBatchWorkspace();
+      }
+      return;
+    }
+
+    // Batch toolbar actions for non-apparel items
+    if (e.target.closest('#btn-batch-convert-nonapparel')) {
+      uploadedFiles.forEach(f => {
+        if (f.is_apparel === false) {
+          f.model = null;
+          f.category_type = 'non_apparel';
+          if (!f.display_name) f.display_name = 'Product Photo';
+        }
+      });
+      pageContent.innerHTML = renderBatchWorkspace();
+      return;
+    }
+
+    if (e.target.closest('#btn-batch-remove-nonapparel')) {
+      uploadedFiles = uploadedFiles.filter(f => f.is_apparel !== false);
+      if (uploadedFiles.length === 0) {
+        appState.batchState.view = 'upload';
+        pageContent.innerHTML = renderBatch();
+      } else {
+        pageContent.innerHTML = renderBatchWorkspace();
+      }
+      return;
+    }
+
+    // Batch Edit Tags button from toolbar
+    if (e.target.closest('#btn-batch-edit-pill')) {
+      const firstSelectedIdx = uploadedFiles.findIndex(f => f.selected);
+      if (firstSelectedIdx >= 0) {
+        openClassificationModal(firstSelectedIdx, true);
+      }
+      return;
+    }
+
+    // Classification Edit Modal Close
+    if (e.target.closest('#classification-modal-close') || e.target.closest('#btn-modal-cancel') || e.target.id === 'classification-edit-modal') {
+      const modal = document.getElementById('classification-edit-modal');
+      if (modal) modal.classList.remove('active');
+      return;
+    }
+
+    // Interactive Segmented Cards inside Taxonomy Modal
+    const taxoTypeCard = e.target.closest('.taxo-type-card');
+    if (taxoTypeCard) {
+      const rad = taxoTypeCard.querySelector('input[type="radio"]');
+      if (rad) rad.checked = true;
+      const modal = document.getElementById('classification-edit-modal');
+      if (modal) {
+        modal.querySelectorAll('.taxo-type-card').forEach(c => c.classList.toggle('selected', c === taxoTypeCard));
+        const isApparel = rad.value === 'true';
+        const genderSec = document.getElementById('modal-gender-section');
+        const modelSec = document.getElementById('modal-model-section');
+        if (genderSec) genderSec.style.display = isApparel ? 'block' : 'none';
+        if (modelSec) modelSec.style.display = isApparel ? 'block' : 'none';
+      }
+      return;
+    }
+
+    const taxoGenderPill = e.target.closest('.taxo-gender-pill');
+    if (taxoGenderPill) {
+      const rad = taxoGenderPill.querySelector('input[type="radio"]');
+      if (rad) rad.checked = true;
+      const modal = document.getElementById('classification-edit-modal');
+      if (modal) {
+        modal.querySelectorAll('.taxo-gender-pill').forEach(p => p.classList.toggle('selected', p === taxoGenderPill));
+        const newGender = rad ? rad.value : 'female';
+        const defaultModel = getDefaultModelForGender(newGender);
+        renderTaxoModelCards(newGender, defaultModel);
+      }
+      return;
+    }
+
+    const taxoModelCard = e.target.closest('.taxo-model-card');
+    if (taxoModelCard) {
+      const rad = taxoModelCard.querySelector('input[type="radio"]');
+      if (rad) rad.checked = true;
+      const modal = document.getElementById('classification-edit-modal');
+      if (modal) {
+        modal.querySelectorAll('.taxo-model-card').forEach(m => m.classList.toggle('selected', m === taxoModelCard));
+      }
+      return;
+    }
+
+    // Apply Classification Changes (Single or All)
+    if (e.target.closest('#btn-modal-apply-single') || e.target.closest('#btn-modal-apply-all')) {
+      const applyToAll = !!e.target.closest('#btn-modal-apply-all') || isBatchEditingMode;
+      const modal = document.getElementById('classification-edit-modal');
+      if (!modal) return;
+
+      const isApparel = modal.querySelector('input[name="modal-is-apparel"]:checked')?.value === 'true';
+      const gender = modal.querySelector('input[name="modal-gender"]:checked')?.value || 'female';
+      const category = document.getElementById('modal-category-select')?.value || 'apparel';
+      const displayName = document.getElementById('modal-display-name')?.value.trim() || '';
+      const chosenModel = modal.querySelector('input[name="modal-assigned-model"]:checked')?.value;
+      const resolvedModel = isApparel 
+        ? (chosenModel !== undefined && chosenModel !== '' ? chosenModel : getDefaultModelForGender(gender)) 
+        : null;
+
+      const targetList = applyToAll 
+        ? (isBatchEditingMode ? uploadedFiles.filter(f => f.selected) : uploadedFiles)
+        : (editingImageIndex !== null && uploadedFiles[editingImageIndex] ? [uploadedFiles[editingImageIndex]] : []);
+
+      targetList.forEach(f => {
+        f.is_apparel = isApparel;
+        f.category_type = isApparel ? 'apparel' : 'non_apparel';
+        f.detected_gender = gender;
+        f.garment_type = category;
+        if (displayName) f.display_name = displayName;
+        f.model = resolvedModel;
+      });
+
+      modal.classList.remove('active');
+      pageContent.innerHTML = renderBatchWorkspace();
+      return;
+    }
+
+    function applyAvatarFilter(modal, filterCategory) {
+      if (!modal) return;
+      modal.querySelectorAll('.avatar-filter-tab').forEach(tab => {
+        const isActive = tab.getAttribute('data-filter') === filterCategory;
+        tab.classList.toggle('active', isActive);
+        tab.style.background = isActive ? '#0f172a' : '#f8fafc';
+        tab.style.color = isActive ? '#ffffff' : '#475569';
+        tab.style.borderColor = isActive ? '#0f172a' : '#e2e8f0';
+      });
+
+      modal.querySelectorAll('.avatar-card').forEach(card => {
+        const cat = card.getAttribute('data-category');
+        const shouldShow = filterCategory === 'all' || cat === filterCategory;
+        card.style.display = shouldShow ? 'block' : 'none';
+      });
+    }
+
+    // Avatar Filter Tab Click
+    const avatarFilterTab = e.target.closest('.avatar-filter-tab');
+    if (avatarFilterTab) {
+      const filter = avatarFilterTab.getAttribute('data-filter') || 'all';
+      const modal = document.getElementById('avatar-modal');
+      applyAvatarFilter(modal, filter);
+      return;
+    }
+
+    const modelBadge = e.target.closest('.batch-thumb__model-badge');
+    if (modelBadge) {
+      e.stopPropagation();
+      const thumb = modelBadge.closest('.batch-thumb');
+      const idx = thumb ? parseInt(thumb.getAttribute('data-index')) : -1;
+      let currentModel = null;
+      let targetGender = 'female';
+      if (idx >= 0 && uploadedFiles[idx]) {
+        if (!uploadedFiles.some(f => f.selected)) {
+          uploadedFiles[idx].selected = true;
+        }
+        currentModel = uploadedFiles[idx].model;
+        targetGender = uploadedFiles[idx].detected_gender || 'female';
+        if (!currentModel) {
+          currentModel = getDefaultModelForGender(targetGender);
+        }
+      }
+      const modal = document.getElementById('avatar-modal');
+      if (modal) {
+        selectedAvatar = currentModel || (onModelAvatars[0] ? onModelAvatars[0].id : '/images/avatar-female.png');
+        
+        let initFilter = 'all';
+        const tg = targetGender.toLowerCase();
+        if (tg.includes('kids') || tg.includes('child')) initFilter = 'kids';
+        else if (tg.includes('male') && !tg.includes('female')) initFilter = 'male';
+        else if (tg.includes('female')) initFilter = 'female';
+
+        applyAvatarFilter(modal, initFilter);
+
+        modal.querySelectorAll('.avatar-card').forEach(c => {
+          const isSelected = c.getAttribute('data-avatar') === selectedAvatar;
+          c.classList.toggle('selected', isSelected);
+          const check = c.querySelector('.avatar-card__selected-check');
+          if (check) check.style.display = isSelected ? 'flex' : 'none';
+        });
+        document.getElementById('btn-apply-avatar').disabled = false;
+        modal.classList.add('active');
+      }
+      return;
+    }
+
     if (e.target.closest('#btn-assign-model')) {
       const modal = document.getElementById('avatar-modal');
-      if (modal && uploadedFiles.some(f => f.selected)) {
-        selectedAvatar = null;
-        modal.querySelectorAll('.avatar-card').forEach(c => c.classList.remove('selected'));
-        document.getElementById('btn-apply-avatar').disabled = true;
+      const firstSelected = uploadedFiles.find(f => f.selected);
+      if (modal && firstSelected) {
+        let currentModel = firstSelected.model;
+        const gender = firstSelected.detected_gender || 'female';
+        if (!currentModel) {
+          currentModel = getDefaultModelForGender(gender);
+        }
+        selectedAvatar = currentModel || (onModelAvatars[0] ? onModelAvatars[0].id : '/images/avatar-female.png');
+
+        let initFilter = 'all';
+        const tg = gender.toLowerCase();
+        if (tg.includes('kids') || tg.includes('child')) initFilter = 'kids';
+        else if (tg.includes('male') && !tg.includes('female')) initFilter = 'male';
+        else if (tg.includes('female')) initFilter = 'female';
+
+        applyAvatarFilter(modal, initFilter);
+
+        modal.querySelectorAll('.avatar-card').forEach(c => {
+          const isSelected = c.getAttribute('data-avatar') === selectedAvatar;
+          c.classList.toggle('selected', isSelected);
+          const check = c.querySelector('.avatar-card__selected-check');
+          if (check) check.style.display = isSelected ? 'flex' : 'none';
+        });
+        document.getElementById('btn-apply-avatar').disabled = false;
         modal.classList.add('active');
       }
       return;
@@ -6997,8 +8442,14 @@ function initBatchEvents() {
 
     const avatarCard = e.target.closest('.avatar-card');
     if (avatarCard) {
-      document.querySelectorAll('.avatar-card').forEach(c => c.classList.remove('selected'));
+      document.querySelectorAll('.avatar-card').forEach(c => {
+        c.classList.remove('selected');
+        const check = c.querySelector('.avatar-card__selected-check');
+        if (check) check.style.display = 'none';
+      });
       avatarCard.classList.add('selected');
+      const check = avatarCard.querySelector('.avatar-card__selected-check');
+      if (check) check.style.display = 'flex';
       selectedAvatar = avatarCard.getAttribute('data-avatar');
       document.getElementById('btn-apply-avatar').disabled = false;
       return;
@@ -7012,7 +8463,6 @@ function initBatchEvents() {
       }
       const modal = document.getElementById('avatar-modal');
       if (modal) modal.classList.remove('active');
-      uploadedFiles.forEach(f => f.selected = false);
       pageContent.innerHTML = renderBatchWorkspace();
       return;
     }
@@ -7023,8 +8473,17 @@ function initBatchEvents() {
       return;
     }
 
+
     const thumb = e.target.closest('.batch-thumb');
-    if (thumb && !e.target.closest('.batch-thumb__checkbox')) {
+    if (thumb && 
+        !e.target.closest('.batch-thumb__checkbox') && 
+        !e.target.closest('.batch-thumb__smart-tag') && 
+        !e.target.closest('.batch-thumb__pill') && 
+        !e.target.closest('.batch-thumb__model-badge') && 
+        !e.target.closest('.batch-thumb__nonapparel-bar') && 
+        !e.target.closest('.btn-convert-product-card') && 
+        !e.target.closest('.btn-remove-thumb-card') && 
+        !e.target.closest('.batch-thumb__delete')) {
       const idx = parseInt(thumb.getAttribute('data-index'));
       const modal = document.getElementById('image-modal');
       const modalImg = document.getElementById('modal-img');
@@ -7051,22 +8510,55 @@ function initBatchEvents() {
         const generationModes = checkedOpts.map(o => o.mode);
         const nameSuffix = checkedOpts.map(o => o.title).join(', ');
 
+        // Pre-cache model base64 representations
+        const modelBase64Cache = {};
+        async function getCachedModelBase64(url) {
+          if (!url) return null;
+          if (modelBase64Cache[url]) return modelBase64Cache[url];
+          try {
+            const b64 = await getBase64FromUrl(url);
+            modelBase64Cache[url] = b64;
+            return b64;
+          } catch (err) {
+            console.warn(`Failed to encode model ${url} to base64:`, err);
+            return null;
+          }
+        }
+
         let modelDesc = null;
         let modelBase64 = null;
         if (generationModes.includes('try_on') && selectedAvatar) {
           const selectedModelObj = onModelAvatars.find(a => a.id === selectedAvatar);
           const isMale = selectedModelObj ? selectedModelObj.tag === 'Male' : true;
           modelDesc = isMale ? 'professional male' : 'professional female';
-
-          try {
-            modelBase64 = await getBase64FromUrl(selectedAvatar);
-          } catch (err) {
-            console.error('Failed to encode model image to base64:', err);
-          }
+          modelBase64 = await getCachedModelBase64(selectedAvatar);
         }
 
         const activeRes = getDefaultResolutionForUser();
         const userTier = (appState.user && appState.user.profile) ? appState.user.profile.subscription_tier : 'free';
+
+        const imageMetadata = {};
+        for (const f of uploadedFiles) {
+          const isApparel = f.is_apparel !== false;
+          let itemModel = f.model;
+          if (isApparel && !itemModel) {
+            itemModel = getDefaultModelForGender(f.detected_gender);
+          }
+          const itemBase64 = (isApparel && itemModel) ? await getCachedModelBase64(itemModel) : null;
+          if (!modelBase64 && itemBase64) {
+            modelBase64 = itemBase64;
+          }
+
+          imageMetadata[f.id] = {
+            is_apparel: isApparel,
+            category_type: f.category_type || (isApparel ? 'apparel' : 'non_apparel'),
+            detected_gender: f.detected_gender || 'female',
+            detected_garment_type: f.garment_type || 'apparel',
+            display_name: f.display_name || '',
+            model: itemModel || null,
+            model_image_base64: itemBase64
+          };
+        }
 
         const batchResponse = await apiFetch('/batches/', {
           method: 'POST',
@@ -7080,15 +8572,23 @@ function initBatchEvents() {
               model_image_base64: modelBase64,
               resolution_tier: activeRes,
               quality: (activeRes === '4k' || activeRes === '2k') ? 'high' : 'medium',
-              subscription_tier: userTier
+              subscription_tier: userTier,
+              image_metadata: imageMetadata
             }
           })
         });
 
-        // Deduct credits in frontend state immediately
+        // Deduct credits in frontend state immediately (fair deduction: non-apparel items in try_on auto-convert to free white_background)
         if (appState.user && appState.user.profile) {
-          const paidCount = generationModes.filter(m => m !== 'background_removal' && m !== 'white_background').length;
-          const deducted = uploadedFiles.length * paidCount * 10;
+          let deducted = 0;
+          uploadedFiles.forEach(f => {
+            generationModes.forEach(m => {
+              if (m !== 'background_removal' && m !== 'white_background') {
+                if (f.is_apparel === false && m === 'try_on') return;
+                deducted += 10;
+              }
+            });
+          });
           appState.user.profile.credit_balance = Math.max(0, (appState.user.profile.credit_balance || 0) - deducted);
           updateCreditsDisplay();
         }
@@ -7204,8 +8704,9 @@ function initBatchEvents() {
         const zip = new JSZip();
         const promises = targetJobs.map(async (job, idx) => {
           const originalFile = uploadedFiles.find(f => f.id === job.image_id);
-          const baseName = (originalFile ? originalFile.name : `selected_sku_${idx + 1}`).replace(/\.[^/.]+$/, '');
-          const filename = `${baseName}_${platformObj.id}_${resId}.png`;
+          const baseName = (originalFile ? originalFile.name : `item_${idx + 1}`).replace(/\.[^/.]+$/, '');
+          const modeTag = (job.generation_mode || 'tryon').replace(/_/g, '-');
+          const filename = `${baseName}_${modeTag}_${idx + 1}_${platformObj.id}_${resId}.png`;
 
           try {
             const blob = await processImageForMarketplace(job.result_url, platformId, resId);
@@ -7292,14 +8793,9 @@ function initBatchEvents() {
             document.body.removeChild(a);
             URL.revokeObjectURL(a.href);
           })
-          .catch((err) => {
-            console.error('Format download failed, fallback to raw url:', err);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+          .catch(async (err) => {
+            console.warn('Format download failed, fallback to direct download:', err);
+            await downloadFileFromUrl(url, filename);
           })
           .finally(() => {
             btn.disabled = false;
@@ -7322,7 +8818,7 @@ function initBatchEvents() {
       const btn = e.target.closest('#btn-export-platform-zip') || e.target.closest('#btn-export-platform-zip-hero');
       const originalText = btn.textContent;
       btn.disabled = true;
-      btn.innerHTML = `<span class="cs-spinner cs-spinner--sm cs-spinner--white" style="margin-right:6px;"></span> Formatting & Zipping...`;
+      btn.innerHTML = `<span class="cs-spinner cs-spinner--sm cs-spinner--white" style="margin-right:6px;"></span> Formatting & Zipping ${completedJobs.length} Images...`;
 
       const platformId = appState.batchState.exportPlatform || 'flipkart';
       const resId = getDefaultResolutionForUser();
@@ -7331,18 +8827,33 @@ function initBatchEvents() {
       try {
         const zip = new JSZip();
 
+        // 1. Fetch & Append AI Catalog CSV Sheet inside ZIP
+        try {
+          const csvRes = await apiFetch(`/batches/${batchDetailData.id}/catalog-csv`);
+          if (typeof csvRes === 'string' && csvRes.length > 10) {
+            zip.file(`Product_Catalog_Inventory_${platformObj.id}.csv`, csvRes);
+          }
+        } catch (csvErr) {
+          console.warn('Could not auto-embed CSV into zip:', csvErr);
+        }
+
         const promises = completedJobs.map(async (job, idx) => {
           const originalFile = uploadedFiles.find(f => f.id === job.image_id);
-          const baseName = (originalFile ? originalFile.name : `catalog_sku_${idx + 1}`).replace(/\.[^/.]+$/, '');
-          const filename = `${baseName}_${platformObj.id}_${resId}.png`;
+          const baseName = (originalFile ? originalFile.name : `catalog_item_${idx + 1}`).replace(/\.[^/.]+$/, '');
+          const modeTag = (job.generation_mode || 'tryon').replace(/_/g, '-');
+          const filename = `${baseName}_${modeTag}_${idx + 1}_${platformObj.id}_${resId}.png`;
 
           try {
             const blob = await processImageForMarketplace(job.result_url, platformId, resId);
             zip.file(filename, blob);
           } catch (e) {
-            const response = await fetch(job.result_url);
-            const rawBlob = await response.blob();
-            zip.file(filename, rawBlob);
+            try {
+              const response = await fetch(job.result_url);
+              const rawBlob = await response.blob();
+              zip.file(filename, rawBlob);
+            } catch (err) {
+              console.warn('Failed to fetch image:', job.result_url, err);
+            }
           }
         });
 
@@ -7366,6 +8877,34 @@ function initBatchEvents() {
       return;
     }
 
+    // Download Standalone Catalog CSV Sheet
+    if (e.target.closest('#btn-export-catalog-csv')) {
+      if (!batchDetailData || !batchDetailData.id) return;
+      const btn = document.getElementById('btn-export-catalog-csv');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="cs-spinner cs-spinner--sm cs-spinner--white" style="margin-right:6px;"></span> Exporting CSV...`;
+
+      try {
+        const csvContent = await apiFetch(`/batches/${batchDetailData.id}/catalog-csv`);
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `CropStudio_Catalog_${batchDetailData.name || 'Batch'}_${batchDetailData.id.slice(0, 8)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+      } catch (err) {
+        console.error('Failed to download CSV:', err);
+        alert(`Failed to download catalog CSV: ${err.message}`);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+      return;
+    }
+
     // Download Multi-Marketplace Bundle ZIP (Flipkart, Amazon, Meesho, Myntra folders)
     if (e.target.closest('#btn-export-bundle-zip')) {
       if (!batchDetailData || !batchDetailData.jobs) return;
@@ -7379,7 +8918,7 @@ function initBatchEvents() {
       const btn = document.getElementById('btn-export-bundle-zip');
       const originalText = btn.textContent;
       btn.disabled = true;
-      btn.innerHTML = `<span class="cs-spinner cs-spinner--sm cs-spinner--white" style="margin-right:6px;"></span> Generating Bundle...`;
+      btn.innerHTML = `<span class="cs-spinner cs-spinner--sm cs-spinner--white" style="margin-right:6px;"></span> Generating Bundle (${completedJobs.length} images)...`;
 
       const resId = getDefaultResolutionForUser();
       const targetExportPlatforms = marketplacePlatforms;
@@ -7403,7 +8942,15 @@ Thank you for creating with CropStudio AI!
 `
         );
 
-        // 2. Process each platform into its own formatted subfolder
+        // 2. Add AI Catalog CSV Sheet
+        try {
+          const csvRes = await apiFetch(`/batches/${batchDetailData.id}/catalog-csv`);
+          if (typeof csvRes === 'string' && csvRes.length > 10) {
+            zip.file(`00_Master_Product_Catalog.csv`, csvRes);
+          }
+        } catch (csvErr) {}
+
+        // 3. Process each platform into its own formatted subfolder
         const folderPrefixes = {
           'flipkart': '01_Flipkart_Myntra',
           'amazon': '02_Amazon_India',
@@ -7418,15 +8965,18 @@ Thank you for creating with CropStudio AI!
           const platformPromises = completedJobs.map(async (job, idx) => {
             const originalFile = uploadedFiles.find(f => f.id === job.image_id);
             const baseName = (originalFile ? originalFile.name : `sku_${idx + 1}`).replace(/\.[^/.]+$/, '');
-            const filename = `${baseName}_${platform.id}.png`;
+            const modeTag = (job.generation_mode || 'tryon').replace(/_/g, '-');
+            const filename = `${baseName}_${modeTag}_${idx + 1}_${platform.id}.png`;
 
             try {
               const blob = await processImageForMarketplace(job.result_url, platform.id, resId);
               folder.file(filename, blob);
             } catch (e) {
-              const response = await fetch(job.result_url);
-              const rawBlob = await response.blob();
-              folder.file(filename, rawBlob);
+              try {
+                const response = await fetch(job.result_url);
+                const rawBlob = await response.blob();
+                folder.file(filename, rawBlob);
+              } catch (err) {}
             }
           });
 
@@ -7699,7 +9249,51 @@ function initToolEvents() {
   }
 
   pageContent.addEventListener('click', async (e) => {
-    // 1. Trigger Hidden File pickers
+    // 0. Handle Option Selections (Remove BG & Upscale)
+    const bgBtn = e.target.closest('.bg-option-btn');
+    if (bgBtn) {
+      const bg = bgBtn.getAttribute('data-bg');
+      if (bg) {
+        appState.removeBgState.bgType = bg;
+        pageContent.innerHTML = renderRemoveBg();
+      }
+      return;
+    }
+
+    const scaleBtn = e.target.closest('.scale-option-btn');
+    if (scaleBtn) {
+      const scale = scaleBtn.getAttribute('data-scale');
+      if (scale) {
+        appState.upscaleState.scaleFactor = scale;
+        pageContent.innerHTML = renderUpscale();
+      }
+      return;
+    }
+
+    // 1. Clear / Remove Uploaded Images
+    if (e.target.closest('#btn-removebg-clear')) {
+      appState.removeBgState.image = null;
+      const fileInput = document.getElementById('removebg-upload-hidden');
+      if (fileInput) fileInput.value = '';
+      pageContent.innerHTML = renderRemoveBg();
+      return;
+    }
+    if (e.target.closest('#btn-upscale-clear')) {
+      appState.upscaleState.image = null;
+      const fileInput = document.getElementById('upscale-upload-hidden');
+      if (fileInput) fileInput.value = '';
+      pageContent.innerHTML = renderUpscale();
+      return;
+    }
+    if (e.target.closest('#btn-edit-clear')) {
+      appState.editState.image = null;
+      const fileInput = document.getElementById('edit-upload-hidden');
+      if (fileInput) fileInput.value = '';
+      pageContent.innerHTML = renderEdit();
+      return;
+    }
+
+    // 2. Trigger Hidden File pickers
     if (e.target.closest('#btn-removebg-upload')) {
       document.getElementById('removebg-upload-hidden')?.click();
       return;
@@ -7713,18 +9307,24 @@ function initToolEvents() {
       return;
     }
 
-    // 2. Launch Strategy Executions
-    if (e.target.id === 'btn-removebg-process') {
+    // 3. Launch Strategy Executions
+    if (e.target.id === 'btn-removebg-process' || e.target.closest('#btn-removebg-process')) {
       appState.removeBgState.processing = true;
       pageContent.innerHTML = renderRemoveBg();
+
+      const isWhite = appState.removeBgState.bgType === 'white';
+      const refineEdges = appState.removeBgState.refineEdges !== false;
 
       try {
         const batchResponse = await apiFetch('/batches/', {
           method: 'POST',
           body: JSON.stringify({
-            name: 'Remove Background',
+            name: isWhite ? 'White Background' : 'Remove Background',
             image_ids: [appState.removeBgState.image.id],
-            generation_mode: 'background_removal'
+            generation_mode: isWhite ? 'white_background' : 'background_removal',
+            config: {
+              refine_edges: refineEdges
+            }
           })
         });
         startPollingBatch(batchResponse.id);
@@ -7736,17 +9336,22 @@ function initToolEvents() {
       return;
     }
 
-    if (e.target.id === 'btn-upscale-process') {
+    if (e.target.id === 'btn-upscale-process' || e.target.closest('#btn-upscale-process')) {
       appState.upscaleState.processing = true;
       pageContent.innerHTML = renderUpscale();
+
+      const scaleFactor = appState.upscaleState.scaleFactor || '4x';
 
       try {
         const batchResponse = await apiFetch('/batches/', {
           method: 'POST',
           body: JSON.stringify({
-            name: 'Upscale Image',
+            name: `Upscale Image (${scaleFactor})`,
             image_ids: [appState.upscaleState.image.id],
-            generation_mode: 'upscale'
+            generation_mode: 'upscale',
+            config: {
+              scale_factor: scaleFactor
+            }
           })
         });
         startPollingBatch(batchResponse.id);
@@ -7758,7 +9363,7 @@ function initToolEvents() {
       return;
     }
 
-    if (e.target.id === 'btn-edit-process') {
+    if (e.target.id === 'btn-edit-process' || e.target.closest('#btn-edit-process')) {
       const promptText = document.getElementById('edit-prompt-text').value.trim();
       if (!promptText) {
         alert('Please specify an edit instruction prompt.');
@@ -7790,6 +9395,10 @@ function initToolEvents() {
   });
 
   pageContent.addEventListener('change', async (e) => {
+    if (e.target.id === 'chk-removebg-refine') {
+      appState.removeBgState.refineEdges = e.target.checked;
+      return;
+    }
     if (e.target.id === 'removebg-upload-hidden') {
       await handleImageUpload(e.target.files[0], appState.removeBgState, 'removebg-canvas', '#btn-removebg-process');
     } else if (e.target.id === 'upscale-upload-hidden') {
@@ -7938,6 +9547,7 @@ async function bootApp() {
   if (appState.token) {
     try {
       await syncUserProfile();
+      await fetchAIFashionModels();
       initApp();
       initToolEvents();
     } catch (err) {

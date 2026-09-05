@@ -81,3 +81,6 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Factory function to create settings instance. Enables DI and testing."""
     return Settings()
+
+
+settings = get_settings()

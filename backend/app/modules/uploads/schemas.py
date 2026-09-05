@@ -48,6 +48,9 @@ class ProcessedAssetResponse(BaseModel):
     input_image_url: str
     status: str
     error_message: str | None = None
+    catalog_data: dict | None = None
+    detected_gender: str | None = None
+    detected_garment_type: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

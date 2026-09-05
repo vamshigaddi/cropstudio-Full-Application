@@ -182,12 +182,46 @@ function initEvents() {
     else nav.classList.remove('scrolled');
   });
 
+  // Mobile Hamburger Menu Toggle
+  const hamburger = document.getElementById('nav-hamburger');
+  const navMenu = document.getElementById('landing-nav-menu');
+  if (hamburger && navMenu) {
+    hamburger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hamburger.classList.toggle('is-active');
+      navMenu.classList.toggle('is-open');
+      document.body.classList.toggle('nav-open');
+    });
+
+    // Close mobile menu when a nav link is clicked
+    navMenu.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        hamburger.classList.remove('is-active');
+        navMenu.classList.remove('is-open');
+        document.body.classList.remove('nav-open');
+      });
+    });
+
+    // Close mobile menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (nav && !nav.contains(e.target)) {
+        hamburger.classList.remove('is-active');
+        navMenu.classList.remove('is-open');
+        document.body.classList.remove('nav-open');
+      }
+    });
+  }
+
   // Smooth scroll
   document.querySelectorAll('[data-scroll]').forEach(el => {
     el.addEventListener('click', (e) => {
       e.preventDefault();
       const target = document.getElementById(el.getAttribute('data-scroll'));
-      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (target) {
+        const navHeight = (nav ? nav.offsetHeight : 70) + 16;
+        const targetPos = target.getBoundingClientRect().top + window.pageYOffset - navHeight;
+        window.scrollTo({ top: targetPos, behavior: 'smooth' });
+      }
     });
   });
 

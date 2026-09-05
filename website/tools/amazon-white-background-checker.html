@@ -223,24 +223,32 @@
 <body>
 
   <!-- Navbar -->
-  <header class="header">
-    <div class="container nav-container">
-      <a href="../index.html" class="logo">
-        <span class="logo-icon">CS</span>
-        CropStudio <span class="badge">AI</span>
+  <nav class="landing-nav" id="landing-nav">
+    <div class="landing-nav__left">
+      <a href="/" class="landing-nav__logo">
+        <img src="../images/logo-mark.svg" alt="CropStudio AI Logo" class="landing-nav__logo-img" />
+        <div class="landing-nav__logo-text">CropStudio <span class="landing-nav__logo-badge">AI</span></div>
       </a>
-      <nav class="nav-menu">
-        <a href="../index.html#tools" class="nav-link">Tools</a>
-        <a href="../marketplace-guidelines.html" class="nav-link">Marketplace Specs</a>
-        <a href="../resources/index.html" class="nav-link">Knowledge Hub</a>
-        <a href="../index.html#pricing" class="nav-link">Pricing</a>
-      </nav>
-      <div class="nav-actions">
-        <a href="https://app.cropstudio.automatexi.com/signin" class="btn btn-secondary">Log in</a>
-        <a href="https://app.cropstudio.automatexi.com/signup" class="btn btn-primary">Start Free Trial</a>
+    </div>
+    <div class="landing-nav__menu" id="landing-nav-menu">
+      <div class="landing-nav__links">
+        <a href="/#features" class="landing-nav__link">Features</a>
+        <a href="/#solutions" class="landing-nav__link active" style="color: #6366f1; font-weight: 700;">Tools & Solutions</a>
+        <a href="/marketplace-guidelines.html" class="landing-nav__link">Guidelines</a>
+        <a href="/#calculator" class="landing-nav__link">Savings Calculator</a>
+        <a href="/#pricing" class="landing-nav__link">Pricing</a>
+      </div>
+      <div class="landing-nav__actions">
+        <a href="https://app.cropstudio.automatexi.com/signin" class="landing-nav__link-btn">Log in</a>
+        <a href="https://app.cropstudio.automatexi.com/signup" class="landing-btn landing-btn--primary">Launch Studio</a>
       </div>
     </div>
-  </header>
+    <button class="landing-nav__hamburger" id="nav-hamburger" aria-label="Toggle navigation menu">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+  </nav>
 
   <div class="checker-page-wrapper">
     <!-- Header -->
@@ -538,6 +546,6 @@
       <p>&copy; 2026 CropStudio AI. All rights reserved.</p>
     </div>
   </footer>
-
+  <script src="../main.js"></script>
 </body>
 </html>

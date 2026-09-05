@@ -123,23 +123,31 @@
 
 <body class="elite-body">
   <!-- Nav -->
-  <nav class="landing-nav">
+  <nav class="landing-nav" id="landing-nav">
     <div class="landing-nav__left">
       <a href="/" class="landing-nav__logo">
-        <div class="landing-nav__logo-icon">CS</div>
-        <div class="landing-nav__logo-text">CropStudio</div>
+        <img src="images/logo-mark.svg" alt="CropStudio AI Logo" class="landing-nav__logo-img" />
+        <div class="landing-nav__logo-text">CropStudio <span class="landing-nav__logo-badge">AI</span></div>
       </a>
+    </div>
+    <div class="landing-nav__menu" id="landing-nav-menu">
       <div class="landing-nav__links">
-        <a href="/" class="landing-nav__link">Home</a>
-        <a href="/#solutions" class="landing-nav__link">Tools</a>
-        <a href="/marketplace-guidelines.html" class="landing-nav__link active" style="color: #7c3aed; font-weight: 700;">Guidelines</a>
+        <a href="/#features" class="landing-nav__link">Features</a>
+        <a href="/#solutions" class="landing-nav__link">Tools & Solutions</a>
+        <a href="/marketplace-guidelines.html" class="landing-nav__link active" style="color: #6366f1; font-weight: 700;">Guidelines</a>
+        <a href="/#calculator" class="landing-nav__link">Savings Calculator</a>
         <a href="/#pricing" class="landing-nav__link">Pricing</a>
       </div>
+      <div class="landing-nav__actions">
+        <a href="https://app.cropstudio.automatexi.com/signin" class="landing-nav__link-btn">Log in</a>
+        <a href="https://app.cropstudio.automatexi.com/signup" class="landing-btn landing-btn--primary">Launch Studio</a>
+      </div>
     </div>
-    <div class="landing-nav__right">
-      <a href="https://app.cropstudio.automatexi.com/signin" class="landing-nav__link-btn">Log in</a>
-      <a href="https://app.cropstudio.automatexi.com/signup" class="landing-btn landing-btn--primary">Launch Studio</a>
-    </div>
+    <button class="landing-nav__hamburger" id="nav-hamburger" aria-label="Toggle navigation menu">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
   </nav>
 
   <!-- Hero -->
@@ -363,5 +371,38 @@
       </div>
     </div>
   </footer>
+  <script>
+    const hamburger = document.getElementById('nav-hamburger');
+    const navMenu = document.getElementById('landing-nav-menu');
+    const nav = document.getElementById('landing-nav');
+    if (hamburger && navMenu) {
+      hamburger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hamburger.classList.toggle('is-active');
+        navMenu.classList.toggle('is-open');
+        document.body.classList.toggle('nav-open');
+      });
+      navMenu.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => {
+          hamburger.classList.remove('is-active');
+          navMenu.classList.remove('is-open');
+          document.body.classList.remove('nav-open');
+        });
+      });
+      document.addEventListener('click', (e) => {
+        if (nav && !nav.contains(e.target)) {
+          hamburger.classList.remove('is-active');
+          navMenu.classList.remove('is-open');
+          document.body.classList.remove('nav-open');
+        }
+      });
+    }
+    if (nav) {
+      window.addEventListener('scroll', () => {
+        if (window.scrollY > 20) nav.classList.add('scrolled');
+        else nav.classList.remove('scrolled');
+      });
+    }
+  </script>
 </body>
 </html>
